@@ -1,5 +1,6 @@
 # Germinal-Center
-Monash University Winter Research Project: Replicating simulations for a Germinal Center
+Monash University Winter Research Project: 
+
 We strive to replicate the computational model outlined in "How to Simulate a Germinal Center" (full citation below).
 
 
