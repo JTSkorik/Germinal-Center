@@ -1,7 +1,3 @@
-'''
-Skeleton for Simulating a Germinal Center
-'''
-
 #Imports:
 import random
 
@@ -11,16 +7,16 @@ def mutate():
 
 
 #Algorithm 2 (Dynamic Updating of Chemotaxis)
-def initiateChemokineReceptors(cell_ID, cell_type):
+def initiateChemokineReceptors(cellID, cell_type):
     if cell_type == 'Centroblast':
-        responsiveToSignalCXCL12[cell_ID] = True
-        responsiveToSignalCXCL13[cell_ID] = False
+        responsiveToSignalCXCL12[cellID] = True
+        responsiveToSignalCXCL13[cellID] = False
     elif cell_type == 'Centrocyte':
-        responsiveToSignalCXCL12[cell_ID] = False
-        responsiveToSignalCXCL13[cell_ID] = True
+        responsiveToSignalCXCL12[cellID] = False
+        responsiveToSignalCXCL13[cellID] = True
     elif cell_type == 'Outcell':
-        responsiveToSignalCXCL12[cell_ID] = False
-        responsiveToSignalCXCL13[cell_ID] = True
+        responsiveToSignalCXCL12[cellID] = False
+        responsiveToSignalCXCL13[cellID] = True
     else:
         print("initiateChemokineReceptors: Invalid cell_type, {}".format(cell_type))
 
@@ -35,14 +31,14 @@ def turnAngle():
     pass
 
 #Algorithm 4 (Updating events at the Centroblast Stage)
-def initiateCycle(cell_ID, divisions):
+def initiateCycle(cellID, divisions):
     if divisions == 0:
         State[cell_ID] = 'cb_stop_dividing'
     else:
         State[cell_ID] = 'cb_G1'
-        cycleStartTime[cell_ID] = 0
-        endofThisPhase[cell_ID] = getDuration(State[cell_ID])
-        numDivisionsToDo[cell_ID] = divisions
+        cycleStartTime[cellID] = 0
+        endofThisPhase[cellID] = getDuration(State[cell_ID])
+        numDivisionsToDo[cellID] = divisions
 
 
 def progressCycle():
@@ -79,27 +75,75 @@ def differ2CC():
 #Algorithm 9 (Initialisation)
 def initialiseCells():
     global cell_ID
+
     #Initialise Stromal Cells:
     for _ in range(NumStromalCells):
         pos = random.choice(DarkZone)       #Find empty location in dark zone
         while Grid_ID[pos] is not None:
             pos = random.choice(DarkZone)
 
+        #Obtain new ID for new cell
         newID = cell_ID
         cell_ID += 1
 
+        #Add to appropriate lists and dictionaries
         StormaList.append(newID)
         Type[newID] = 'Stromal'
+        Position[newID] = pos
         Grid_ID[pos] = newID
-        Grid_type[pos] = 'Stromal'
+        Grid_Type[pos] = 'Stromal'
+
 
     #Initialise Fragments:
     for _ in range(NumFDC):
-        pos = random.choice(LightZone)      #Find empty location in list zone
+        #Find empty location in list zone
+        pos = random.choice(LightZone)
         while Grid_ID[pos] is not None:
             pos = random.choice(LightZone)
 
+        #Obtain new ID for new cell
+        newID = cell_ID
+        cell_ID += 1
 
+        #Add to appropriate lists and dictonaries
+        FDCList.append(newID)
+        Type[newID] = 'FCell'
+        Position[newID] = pos
+        Grid_ID[pos] = newID
+        Grid_Type[pos] = 'FCell'
+
+        #Find the fragments for the FCell
+        FCell_ID = cell_ID
+        fragments = []
+        x = pos[0]; y = pos[1]; z = pos[2]
+        for i in range(1, DendriteLength+1):
+            #TODO implement O(1) checks for whether position is valid.
+            for frag_pos in [(x+i, y, z), (x-i, y, z), (x, y+i, z), (x, y-i, z)]:
+                if frag_pos in LightZone and Grid_ID[frag_pos] == None:
+                    newID = cell_ID
+                    cell_ID += 1
+                    fragments.append(newID)
+                    Position[newID] = pos
+                    Grid_ID[frag_pos] = newID
+                    Grid_Type[frag_pos] = 'Fragment'
+
+        #When Z axis is changing, we require extra check that we're still in light zone.
+            for frag_pos in [(x, y, z+i), (x, y, z-i)]:
+                if frag_pos in LightZone and Grid_ID[frag_pos] == None:
+                    newID = cell_ID
+                    cell_ID += 1
+                    fragments.append(newID)
+                    Position[newID] = pos
+                    Grid_ID[frag_pos] = newID
+                    Grid_Type[frag_pos] = 'Fragment'
+
+        Fragments[FCell_ID] = fragments
+
+        #Assign each fragment an amount of antigen
+        FCellVol[FCell_ID] = len(fragments) + 1     #+1 accounts for centre
+        agPerFrag = AntigenAmountPerFDC/FCellVol[FCell_ID]
+        for Frag in [FCell_ID]+Fragments[FCell_ID]:
+            FragmentAg[Frag] = agPerFrag
 
 
     #Initialise Seeder Cells:
@@ -108,16 +152,19 @@ def initialiseCells():
         while Grid_ID[pos] is not None:
             pos = random.choice(LightZone)
 
+        #Obtain new ID for new cell
         newID = cell_ID
         cell_ID += 1
 
+        #Add cell to appropriate lists and dictionaries
         CBDList.append(newID)
         Type[newID] = 'Centroblast'
         BCR[newID] = None
         '''Need BCR values'''
+        Position[newID] = pos
         pMutation[newID] = pMut(t)
         Grid_ID[pos] = newID
-        Grid_type[pos] = 'Centroblast'
+        Grid_Type[pos] = 'Centroblast'
 
         initiateCycle(newID, numDivFounderCells)
         initiateChemokineReceptors(newID, 'Centroblast')
@@ -128,19 +175,25 @@ def initialiseCells():
         while Grid_ID[pos] is not None:
             pos = random.choice(LightZone)
 
+        #Obtain new ID for new cell.
         newID = cell_ID
         cell_ID += 1
 
+        #Add cell to appropriate lists and dictionaries
         TCList.append(newID)
         Type[newID] = 'TCell'
+        Position[newID] = pos
         Grid_ID[pos] = newID
-        Grid_type[pos] = 'TCell'
-
+        Grid_Type[pos] = 'TCell'
 
 
 #Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
-    pass
+    global t
+    while t <= tmax:
+        t += dt
+        for StromalCell in StormaList:
+            pass
 
 #Extra Algorithms/Functions
 def generateSpatialPoints(n):
@@ -168,7 +221,7 @@ def getDuration(cell_state):
     Input: current state of cell, cell_state
     Output: amount of time
     '''
-    sd = 1
+    sigma = 1
     if cell_state == 'cb_G1':
         mu = 2.0
     elif cell_state == 'cb_S':
@@ -180,63 +233,80 @@ def getDuration(cell_state):
     else:
         print("getDuration: Invalid cell state, {}".format(cell_state))
 
-    return random.gauss(mu, sd)
+    return random.gauss(mu, sigma)
+
+
+#Set-up for simulation:
+
+#Distance Variables:
+N = 64      #Diameter of sphere/GC
+AllPoints = generateSpatialPoints(N)
+DarkZone = [point for point in AllPoints if point[2] > N/2 ]
+LightZone = [point for point in AllPoints if point[2] <= N/2 ]
+
+dx = 5
+
+#Time Variables:
+dt = 0.002
+tmin = 0.0
+tmax = 504.0
+t = 0.0     #Current time
+
+#Initialisation
+NumStromalCells = 300
+NumFDC = 200
+NumSeeder = 3
+NumTC = 250
+
+DendriteLength = 8
+AntigenAmountPerFDC = 3000
+
+#Lists to store ID of each cell in each state (and fragments)
+StormaList = []
+FDCList = []
+CBDList = []
+TCList = []
+
+'''
+Here we will create empty dictionaries to store different properties. Will add them as necessary.
+'''
+BCR = {}
+pMutation = {}
+Type = {}
+State = {}
+Position = {}
+cycleStartTime = {}
+endofThisPhase = {}
+numDivisionsToDo = {}
+responsiveToSignalCXCL12 = {}
+responsiveToSignalCXCL13 = {}
+Fragments = {}
+FragmentAg = {}
+FCellVol = {}
+
+
+#Dictionaries storing what is at each location. Initially empty, so 'None'.
+Grid_ID = {pos:None for pos in AllPoints}
+Grid_Type = {pos:None for pos in AllPoints}
+
+#Sequence variable for giving each cell an ID:
+cell_ID = 0
+
+
+#Dynamic number of divisions:
+numDivFounderCells = 12
+
 
 if __name__ == "__main__":
-    #Set-up for simulation:
 
-    #Distance Variables:
-    N = 16      #Diameter of sphere/GC
-    AllPoints = generateSpatialPoints(N)
-    DarkZone = [point for point in AllPoints if point[2] > N/2 - 1]
-    LightZone = [point for point in AllPoints if point[2] <= N/2 - 1]
-
-    dx = 5
-
-    #Time Variables:
-    dt = 0.002
-    tmin = 0.0
-    tmax = 504.0
-    t = 0.0     #Current time
-
-    #Initialisation
-    NumStromalCells = 300
-    NumFDC = 200
-    NumSeeder = 3
-    NumTC = 250
-
-    DendriteLength = 8
-
-    #Lists to store ID of each cell in each state (and fragments)
-    StormaList = []
-    FDCList = []
-    CBDList = []
-    TCList = []
-
-    '''
-    Here we will create empty dictionaries to store different properties. Will add them as necessary.
-    '''
-    BCR = {}
-    pMutation = {}
-    Type = {}
-    State = {}
-    cycleStartTime = {}
-    endofThisPhase = {}
-    numDivisionsToDo = {}
-    responsiveToSignalCXCL12 = {}
-    responsiveToSignalCXCL13 = {}
-
-
-    #Dictionaries storing what is at each location. Initially empty, so 'None'.
-    Grid_ID = {pos:None for pos in AllPoints}
-    Grid_type = {pos:None for pos in AllPoints}
-
-    #Sequence variable for giving each cell an ID:
-    cell_ID = 0
-
-
-    #Dynamic number of divisions:
-    numDivFounderCells = 12
+    initialiseCells()
+    count = 0
+    for i in AllPoints:
+        if Grid_Type[i] is not None:
+            count += 1
+            print("Position = {}, Cell_id = {}, Cell_type = {}".format(i, Grid_ID[i], Grid_Type[i]))
+    print(count)
+    print(len(LightZone))
 
 
 
