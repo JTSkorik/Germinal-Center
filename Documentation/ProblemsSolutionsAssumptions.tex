@@ -1,0 +1,65 @@
+
+\documentclass[english]{article}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{geometry}
+\geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+\usepackage{array}
+\usepackage{longtable}
+
+\makeatletter
+
+
+\makeatother
+
+\usepackage{babel}
+\begin{document}
+\begin{center}
+\begin{longtable}{|>{\centering}p{2.1in}|>{\centering}p{2.1in}|>{\centering}p{2.1in}|}
+\hline 
+Problem & Solution(s) & Assumption(s)\tabularnewline
+\hline 
+\hline 
+When applying mutation to BCR (4 Digit Code), it is not clear how
+to decide where to plus or minus one. & If both are possible, apply either with equal chance of occurring.
+If only one is possible, apply that change.  & Both options equally likely. \tabularnewline
+\hline 
+We require a probability distribution to determine the turning angle.
+Distribution not found in the cited references. & Can estimate it using a Random Variable.   & Turning angle is equally likely to go ``left'' or ``right''\tabularnewline
+\hline 
+In algorithm 3: ``with probability persistentLengthTime(C.type)''.
+In parameters, all values but one of these parameters have a value
+less than 1.  & Value is given in terms of minutes. We will convert this to minutes
+so that all cases have a probability less than one. Worth noting this
+probability will be tiny after the conversion.  & -\tabularnewline
+\hline 
+In algorithm 9: ``get new BCR, randomly or from a predefined repertoire''.  & Uniformally generate BCR values for now.  & -\tabularnewline
+\hline 
+Require amount of CXCL12 and CXCL13 at each position within the germinal
+center.  & Use Guassian or Uniform random variable to assign temporary values. & Assumed values are distributed similar to critical values given in
+table of values\tabularnewline
+\hline 
+ & Assign value near critical value to all positions in cell.  & Assumed the germinal center starts off with a constant amount throughout. \tabularnewline
+\hline 
+pDif2Out(time) has a formula with a variable that's always zero. & - & -\tabularnewline
+\hline 
+In algorithm 9 it is not clear whether the FDC branches remain within
+the Light Zone.  & Forced branches to be only within light zone.  & As suggested by diagrams at the start of the paper, the FDC branches
+cannot leave the Light Zone. \tabularnewline
+\hline 
+Algorithm 10 contains two function that have not been described.  &  & \tabularnewline
+\hline 
+The initial polarity of each cell is unknown.  & Randomly assign the polarity. & \tabularnewline
+\hline 
+Algorithm 3. The move function has a vector called North. North is
+a vector pointing towards the light zone and is not defined. This
+is peculiar as it only influences T cells and they are already in
+the Light Zone.  & Light zone is the bottom of the sphere, could use $(0,0,-1)$. & \tabularnewline
+\hline 
+Algorithm 3, in the move function we must not move the cell against the polarity. Hard to determine this. & We find the best possible points the cell can move to, in order and only consider the first 8 points, taking the best possible. If none of these points are free, the cell does not move.& 
+\tabularnewline
+\hline 
+
+\end{longtable}
+\par\end{center}
+\end{document}
