@@ -25,8 +25,19 @@ def initiate_chemokine_receptors(ID, cell_type):
         print("initiate_chemokine_receptors: Invalid cell_type, {}".format(cell_type))
 
 
-def update_chemokines_receptors():
-    pass
+def update_chemokines_receptors(ID):
+    pos = Position[ID]
+    if Type[ID] == 'Centrocyte':
+        if State[ID] == 'Unselected':
+            if Grid_CXCL13[pos] > CXCL13crit:
+                responsiveToSignalCXCL13[ID] = False
+            elif Grid_CXCL13[pos] < CXCL13recrit:
+                responsiveToSignalCXCL13[ID] = True
+    elif Type[ID] == 'Centroblast':
+        if Grid_CXCL12[pos] > CXCL12crit:
+            responsiveToSignalCXCL12[ID] = False
+        elif Grid_CXCL12[pos] < CXCL12recrit:
+            responsiveToSignalCXCL12[ID] = True
 
 
 # Algorithm 3 (Updating Position and Polarity of cells at each time-point)
@@ -305,6 +316,9 @@ def hyphasma():
             if is_surface_point(pos):
                 OutList.remove(ID)
 
+        for ID in random.shuffle(CBList):
+            update_chemokines_receptors(ID)
+
         t += dt
 
 
@@ -436,6 +450,12 @@ pLTCentrocyte = 0.025
 pLTCentroblast = 0.025
 pLTTCell = 0.0283
 pLTOutCell = 0.0125
+
+# Dynamic update of chemokine receptors
+CXCL12crit = 60.0e-10
+CXCL12recrit = 40.0e-10
+CXCL13crit = 0.8e-10
+CXCL13recrit = 0.6e-10
 
 # Chemotaxis
 chemoMax = 10
