@@ -6,9 +6,22 @@ import itertools
 
 
 # Algorithm 1 (Mutation)
-def mutate():
-    pass
-
+def mutate(ID):
+    if random.uniform(0,1) < pMutation[ID]:
+        index = random.choice([0,1,2,3])
+        value = int(str(BCR[ID])[3-index])
+        if index == 3 and value == 1:
+            BCR[ID] += 10**index
+        else:
+            if value == 0:
+                BCR[ID] += 10**index
+            elif value == 9:
+                BCR[ID] -= 10**index
+            else:
+                if random.uniform(0,1) < 0.5:
+                    BCR[ID] += 10**index
+                else:
+                    BCR[ID] -= 10**index
 
 # Algorithm 2 (Dynamic Updating of Chemotaxis)
 def initiate_chemokine_receptors(ID, cell_type):
@@ -60,6 +73,7 @@ def move(ID):
         speed = None
         print("move: Invalid cell_type, {}".format(cell_type))
 
+    #TODO randomly assign polarity at initialisation
     if random.uniform(0, 1) < prob:
         theta = random.gauss(0, 1)
         phi = random.uniform(0, 2 * math.pi)
@@ -105,7 +119,7 @@ def move(ID):
     if random.uniform(0, 1) < pDifu:
         WantedPosition = np.asarray(pos) + Polarity[ID]
         Neighbours = [np.asarray(Movement) + np.asarray(pos) for Movement in
-                      list(itertools.product([-1, 0, 1], repeat=3)) if Movement != (0, 0, 0)]
+                      Possible_Movements]
         Neighbours.sort(key=lambda x: np.linalg.norm(x - WantedPosition))
         count = 0
         moved = False
@@ -128,20 +142,20 @@ def turn_angle(pol, theta, phi):
 
 
 # Algorithm 4 (Updating events at the Centroblast Stage)
-def initiate_cycle(cellID, divisions):
-    if divisions == 0:
-        State[cell_ID] = 'cb_stop_dividing'
+def initiate_cycle(ID):
+    if numDivisionsToDo[ID] == 0:
+        State[ID] = 'cb_stop_dividing'
     else:
-        State[cell_ID] = 'cb_G1'
-        cycleStartTime[cellID] = 0
-        endOfThisPhase[cellID] = get_duration(State[cell_ID])
-        numDivisionsToDo[cellID] = divisions
+        State[ID] = 'cb_G1'
+        cycleStartTime[ID] = 0
+        endOfThisPhase[ID] = get_duration(State[cell_ID])
+        numDivisionsToDo[ID] = numDivisionsToDo[ID]
 
 
 def progress_cycle(ID):
     cycleStartTime[ID] += dt
     if cycleStartTime[ID] > endOfThisPhase[ID]:
-        #TODO restructure how cell state is stored throughout code.
+        # TODO restructure how cell state is stored throughout code.
         if State[ID] == 'cb_G1':
             State[ID] = 'cb_S'
         elif State[ID] == 'cb_S':
@@ -152,8 +166,44 @@ def progress_cycle(ID):
             endOfThisPhase[ID] = get_duration(State[ID])
             cycleStartTime[ID] = 0
 
-def divide_and_mutate():
-    pass
+
+def divide_and_mutate(ID):
+    global cell_ID
+    pos = Position[ID]
+    if random.uniform(0, 1) < pNow:
+        empty_neighbours = []
+        for possible_neighbour in Possible_Movements:
+            new_pos = tuple(np.array(pos) + np.array(possible_neighbour))
+            if Grid_ID[new_pos] is None:
+                empty_neighbours.append(tuple(new_pos))
+        if empty_neighbours:
+            divide_pos = random.choice(empty_neighbours)
+
+            newID = cell_ID
+            cell_ID += 1
+
+            Position[newID] = divide_pos
+            Type[newID] = Type[ID]
+            Grid_ID[divide_pos] = newID
+            Grid_ID[divide_pos] = Type[newID]
+            responsiveToSignalCXCL13[newID] = responsiveToSignalCXCL13[ID]
+            responsiveToSignalCXCL12[newID] = responsiveToSignalCXCL12[ID]
+            BCR[newID] = BCR[ID]
+            pMutation[newID] = pMutation[ID]
+            Polarity[newID] = Polarity[ID]
+            numDivisionsToDo[newID] = numDivFounderCells[ID]-1
+            numDivFounderCells[ID] -= 1
+
+            #TODO change initialisation to also include IAmHighAg
+            IAmHighAg[ID] = False
+            IAmHighAg[newID] = False
+
+            initiate_cycle(ID)
+            initialise_cells(newID)
+
+            if t > mutationStartTime:
+                mutate(ID)
+                mutate(newID)
 
 
 # Algorithm 5 (Antigen Collection from FDCs)
@@ -245,7 +295,7 @@ def initialise_cells():
                     Grid_ID[frag_pos] = newID
                     Grid_Type[frag_pos] = 'Fragment'
 
-                    # When Z axis is changing, we require extra check that we're still in light zone.
+            # When Z axis is changing, we require extra check that we're still in light zone.
             for frag_pos in [(x, y, z + i), (x, y, z - i)]:
                 if frag_pos in LightZone and Grid_ID[frag_pos] is None:
                     newID = cell_ID
@@ -276,14 +326,15 @@ def initialise_cells():
         # Add cell to appropriate lists and dictionaries
         CBList.append(newID)
         Type[newID] = 'Centroblast'
-        #TODO make up BCR values
+        # TODO make up BCR values
         BCR[newID] = None
         Position[newID] = pos
         pMutation[newID] = p_mut(t)
+        numDivisionsToDo[newID] = numDivFounderCells
         Grid_ID[pos] = newID
         Grid_Type[pos] = 'Centroblast'
 
-        initiate_cycle(newID, numDivFounderCells)
+        initiate_cycle(newID)
         initiate_chemokine_receptors(newID, 'Centroblast')
 
     # Initialise T Cells:
@@ -307,6 +358,7 @@ def initialise_cells():
 # Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
     global t
+    global cell_ID
     while t <= tmax:
         for StromalCell in StormaList:
             signal_secretion(StromalCell, 'CXCL12', p_mkCXCL12)
@@ -329,6 +381,8 @@ def hyphasma():
         for ID in random.shuffle(CBList):
             update_chemokines_receptors(ID)
             progress_cycle(ID)
+            if State[ID] == 'cb_divide':
+                divide_and_mutate(ID)
 
         t += dt
 
@@ -437,6 +491,7 @@ Fragments = {}
 FragmentAg = {}
 FCellVol = {}
 Polarity = {}
+IAmHighAg = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -480,6 +535,15 @@ speedCentrocyte = 7.5
 speedCentroblast = 7.5
 speedTCell = 10.0
 speedOutCell = 3.0
+
+# Divide and Mutate
+pNow = dt * 9.0
+mutationStartTime = 24.0
+polarityIndex = 0.88
+
+# Movements:
+Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
+Possible_Movements.remove((0, 0, 0))
 
 # Run Simulation:
 if __name__ == "__main__":
