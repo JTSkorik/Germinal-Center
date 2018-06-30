@@ -247,16 +247,27 @@ def liberate_tcell():
 
 
 # Algorithm 8 (Transition between Centroblasts, centrocyctes, and output Cells)
-def differ_to_out():
-    pass
+def differ_to_out(ID):
+    OutList.append(ID)
+    initiate_chemokine_receptors(ID, 'OutCell')
+    #TODO NumOutCells
+    Grid_Type[Position[ID]] = 'OutCell'
 
 
 def differ_to_cb():
     pass
 
 
-def differ_to_cc():
-    pass
+def differ_to_cc(ID):
+    CCList.append(ID)
+    initiate_chemokine_receptors(ID, 'Centrocyte')
+    Grid_Type[Position[ID]] = 'Centrocyte'
+    State[ID] = 'Unselected'
+    if DeleteAgInFreshCC:
+        numFDCContacts[ID] = 0
+    else:
+        numFDCContacts[ID] = retainedAg[ID] + 0.5
+
 
 
 # Algorithm 9 (Initialisation)
@@ -404,6 +415,12 @@ def hyphasma():
             progress_cycle(ID)
             if State[ID] == 'cb_divide':
                 divide_and_mutate(ID)
+            if State[ID] == 'cb_stop_diving':
+                if random.uniform(0,1) < pDif:
+                    if IAmHighAg[ID]:
+                        differ_to_out(ID)
+                    else:
+                        differ_to_cc(ID)
 
         t += dt
 
@@ -494,6 +511,7 @@ AntigenAmountPerFDC = 3000
 StormaList = []
 FDCList = []
 CBList = []
+CCList = []
 TCList = []
 OutList = []
 
@@ -511,6 +529,7 @@ responsiveToSignalCXCL13 = {}
 Fragments = {}
 FragmentAg = {}
 FCellVol = {}
+numFDCContacts = {}
 Polarity = {}
 IAmHighAg = {}
 retainedAg = {}
@@ -563,6 +582,11 @@ pNow = dt * 9.0
 mutationStartTime = 24.0
 polarityIndex = 0.88
 pDivideAgAsymmetric = 0.72
+
+# Differentiation Rates
+pDif = dt * 0.1
+
+DeleteAgInFreshCC = True
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
