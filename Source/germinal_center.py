@@ -205,6 +205,27 @@ def divide_and_mutate(ID):
                 mutate(ID)
                 mutate(newID)
 
+            if random.uniform(0,1) < pDivideAgAsymmetric:
+                #TODO add retainedAg to initialisation, assume zero
+                if retainedAg[ID] == 0:
+                    retainedAg[newID] = 0
+                else:
+                    sep = random.gauss(polarityIndex, 1)
+                    while sep < 0 or sep > 1:
+                        sep = random.gauss(polarityIndex, 1)
+
+                    retainedAg[newID] = sep * retainedAg[ID]
+                    retainedAg[ID] = (1-sep) * retainedAg[ID]
+
+                    if sep > 0.5:
+                        IAmHighAg[newID] = True
+                    else:
+                        IAmHighAg[ID] = False
+            else:
+                retainedAg[newID] = retainedAg[ID] / 2
+                retainedAg[ID] = retainedAg[ID] / 2
+
+
 
 # Algorithm 5 (Antigen Collection from FDCs)
 def progress_fdc_selection():
@@ -492,6 +513,7 @@ FragmentAg = {}
 FCellVol = {}
 Polarity = {}
 IAmHighAg = {}
+retainedAg = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -540,6 +562,7 @@ speedOutCell = 3.0
 pNow = dt * 9.0
 mutationStartTime = 24.0
 polarityIndex = 0.88
+pDivideAgAsymmetric = 0.72
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
