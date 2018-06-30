@@ -138,16 +138,26 @@ def initiate_cycle(cellID, divisions):
         numDivisionsToDo[cellID] = divisions
 
 
-def progress_cycle():
-    pass
-
+def progress_cycle(ID):
+    cycleStartTime[ID] += dt
+    if cycleStartTime[ID] > endOfThisPhase[ID]:
+        #TODO restructure how cell state is stored throughout code.
+        if State[ID] == 'cb_G1':
+            State[ID] = 'cb_S'
+        elif State[ID] == 'cb_S':
+            State[ID] = 'cb_G2'
+        elif State[ID] == 'cb_G2':
+            State[ID] = 'cb_divide'
+        if State[ID] != 'cb_divide':
+            endOfThisPhase[ID] = get_duration(State[ID])
+            cycleStartTime[ID] = 0
 
 def divide_and_mutate():
     pass
 
 
 # Algorithm 5 (Antigen Collection from FDCs)
-def prgress_fdc_selection():
+def progress_fdc_selection():
     pass
 
 
@@ -266,8 +276,8 @@ def initialise_cells():
         # Add cell to appropriate lists and dictionaries
         CBList.append(newID)
         Type[newID] = 'Centroblast'
+        #TODO make up BCR values
         BCR[newID] = None
-        '''Need BCR values'''
         Position[newID] = pos
         pMutation[newID] = p_mut(t)
         Grid_ID[pos] = newID
@@ -318,6 +328,7 @@ def hyphasma():
 
         for ID in random.shuffle(CBList):
             update_chemokines_receptors(ID)
+            progress_cycle(ID)
 
         t += dt
 
