@@ -7,21 +7,22 @@ import itertools
 
 # Algorithm 1 (Mutation)
 def mutate(ID):
-    if random.uniform(0,1) < pMutation[ID]:
-        index = random.choice([0,1,2,3])
-        value = int(str(BCR[ID])[3-index])
+    if random.uniform(0, 1) < pMutation[ID]:
+        index = random.choice([0, 1, 2, 3])
+        value = int(str(BCR[ID])[3 - index])
         if index == 3 and value == 1:
-            BCR[ID] += 10**index
+            BCR[ID] += 10 ** index
         else:
             if value == 0:
-                BCR[ID] += 10**index
+                BCR[ID] += 10 ** index
             elif value == 9:
-                BCR[ID] -= 10**index
+                BCR[ID] -= 10 ** index
             else:
-                if random.uniform(0,1) < 0.5:
-                    BCR[ID] += 10**index
+                if random.uniform(0, 1) < 0.5:
+                    BCR[ID] += 10 ** index
                 else:
-                    BCR[ID] -= 10**index
+                    BCR[ID] -= 10 ** index
+
 
 # Algorithm 2 (Dynamic Updating of Chemotaxis)
 def initiate_chemokine_receptors(ID, cell_type):
@@ -73,7 +74,7 @@ def move(ID):
         speed = None
         print("move: Invalid cell_type, {}".format(cell_type))
 
-    #TODO randomly assign polarity at initialisation
+    # TODO randomly assign polarity at initialisation
     if random.uniform(0, 1) < prob:
         theta = random.gauss(0, 1)
         phi = random.uniform(0, 2 * math.pi)
@@ -84,7 +85,7 @@ def move(ID):
         z = pos[2]
 
     if responsiveToSignalCXCL12[ID]:
-        # TODO implement boundary values, could automatically be set in Grid_CXCL12.
+        # TODO implement boundary values, could automatically be set in Grid_CXCL12. (Have values outside sphere be constant)
         x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
         y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
         z_diff = Grid_CXCL12[(x, y, z + 1)] - Grid_CXCL12[(x, y, z - 1)]
@@ -98,7 +99,7 @@ def move(ID):
         Polarity[ID] += chemoFactor
 
     if responsiveToSignalCXCL13[ID]:
-        # TODO implement boundary values, could automatically be set in Grid_CXCL13. Given as zero in variable table.
+        # TODO implement boundary values, could automatically be set in Grid_CXCL13. Given as zero in variable table. (Have values outside sphere be constant)
         x_diff = Grid_CXCL13[(x + 1, y, z)] - Grid_CXCL13[(x - 1, y, z)]
         y_diff = Grid_CXCL13[(x, y + 1, z)] - Grid_CXCL13[(x, y - 1, z)]
         z_diff = Grid_CXCL13[(x, y, z + 1)] - Grid_CXCL13[(x, y, z - 1)]
@@ -191,10 +192,10 @@ def divide_and_mutate(ID):
             BCR[newID] = BCR[ID]
             pMutation[newID] = pMutation[ID]
             Polarity[newID] = Polarity[ID]
-            numDivisionsToDo[newID] = numDivisionsToDo[ID]-1
+            numDivisionsToDo[newID] = numDivisionsToDo[ID] - 1
             numDivisionsToDo[ID] -= 1
 
-            #TODO change initialisation to also include IAmHighAg
+            # TODO change initialisation to also include IAmHighAg
             IAmHighAg[ID] = False
             IAmHighAg[newID] = False
 
@@ -205,8 +206,8 @@ def divide_and_mutate(ID):
                 mutate(ID)
                 mutate(newID)
 
-            if random.uniform(0,1) < pDivideAgAsymmetric:
-                #TODO add retainedAg to initialisation, assume zero
+            if random.uniform(0, 1) < pDivideAgAsymmetric:
+                # TODO add retainedAg to initialisation, assume zero
                 if retainedAg[ID] == 0:
                     retainedAg[newID] = 0
                 else:
@@ -215,7 +216,7 @@ def divide_and_mutate(ID):
                         sep = random.gauss(polarityIndex, 1)
 
                     retainedAg[newID] = sep * retainedAg[ID]
-                    retainedAg[ID] = (1-sep) * retainedAg[ID]
+                    retainedAg[ID] = (1 - sep) * retainedAg[ID]
 
                     if sep > 0.5:
                         IAmHighAg[newID] = True
@@ -226,10 +227,36 @@ def divide_and_mutate(ID):
                 retainedAg[ID] = retainedAg[ID] / 2
 
 
-
 # Algorithm 5 (Antigen Collection from FDCs)
-def progress_fdc_selection():
-    pass
+def progress_fdc_selection(ID):
+    if State[ID] == 'Unselected':
+        selectedClock[ID] += dt
+        if selectedClock[ID] <= collectFDCperiod:
+            clock[ID] += dt
+            if clock[ID] > testDelay:
+                selectable[ID] = True
+                # Include zero in case no neighbouring fragments, then max is zero and binding probability is zero.
+                frag_antigen_amount = [0]
+                for neighbour in Possible_Movements:
+                    pos = Position[ID]
+                    neighbour_pos = tuple(np.array(pos) + np.array(neighbour))
+                    if Grid_Type[neighbour_pos] in ['Fragment', 'FCell']:
+                        Frag_ID = Grid_ID[neighbour_pos]
+                        frag_antigen_amount.append(FragmentAg[Frag_ID])
+                pBind = affinity(ID, Antigen_Value) * max(frag_antigen_amount) / antigenSaturation
+                if random.choice(0,1) < pBind:
+                    State[ID] = 'Contact'
+                else:
+                    clock[ID] = 0
+                    selectable[ID] = False
+        else:
+            if numFDCContacts[ID] == 0:
+                State[ID] = 'Apoptosis'
+            else:
+                State[ID] = 'FDCSlected'
+
+    if State[ID] == 'Contact':
+        pass
 
 
 # Algorithm 6 (Screening for T cell help at the Centrocyte Stage)
@@ -246,16 +273,19 @@ def liberate_tcell():
     pass
 
 
-# Algorithm 8 (Transition between Centroblasts, centrocyctes, and output Cells)
+# Algorithm 8 (Transition between Centroblasts, Centrocyctes, and Output Cells)
 def differ_to_out(ID):
     OutList.append(ID)
     initiate_chemokine_receptors(ID, 'OutCell')
-    #TODO NumOutCells
+    # TODO NumOutCells
     Grid_Type[Position[ID]] = 'OutCell'
 
 
-def differ_to_cb():
-    pass
+def differ_to_cb(ID):
+    CBList.append(ID)
+    initiate_chemokine_receptors(ID, 'Centroblast')
+    Grid_Type[Position[ID]] = 'Centroblast'
+    # Unfinished
 
 
 def differ_to_cc(ID):
@@ -267,7 +297,6 @@ def differ_to_cc(ID):
         numFDCContacts[ID] = 0
     else:
         numFDCContacts[ID] = retainedAg[ID] + 0.5
-
 
 
 # Algorithm 9 (Initialisation)
@@ -416,11 +445,18 @@ def hyphasma():
             if State[ID] == 'cb_divide':
                 divide_and_mutate(ID)
             if State[ID] == 'cb_stop_diving':
-                if random.uniform(0,1) < pDif:
+                if random.uniform(0, 1) < pDif:
                     if IAmHighAg[ID]:
                         differ_to_out(ID)
                     else:
                         differ_to_cc(ID)
+
+            if State[ID] != 'cb_M':
+                move(ID)
+
+        for ID in random.shuffle(CCList):
+            update_chemokines_receptors(ID)
+            progress_fdc_selection(ID)
 
         t += dt
 
@@ -435,8 +471,8 @@ def generate_spatial_points(n):
             for z in range(-n / 2, n / 2) if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (n / 2) ** 2]
 
 
-def find_empty_neighbour():
-    pass
+def affinity(ID, antigen):
+    return 1
 
 
 def p_mut(time):
@@ -484,6 +520,8 @@ def is_surface_point(position):
 
 
 # Set-up for simulation:
+Antigen_Value = 1234
+
 # Distance Variables:
 N = 64  # Diameter of sphere/GC
 AllPoints = generate_spatial_points(N)
@@ -533,6 +571,9 @@ numFDCContacts = {}
 Polarity = {}
 IAmHighAg = {}
 retainedAg = {}
+selectedClock = {}
+selectable = {}
+clock = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -585,8 +626,12 @@ pDivideAgAsymmetric = 0.72
 
 # Differentiation Rates
 pDif = dt * 0.1
-
 DeleteAgInFreshCC = True
+
+# Selection Steps
+testDelay = 0.02
+collectFDCperiod = 0.7
+antigenSaturation = 20
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
