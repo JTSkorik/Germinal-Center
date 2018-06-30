@@ -191,15 +191,15 @@ def divide_and_mutate(ID):
             BCR[newID] = BCR[ID]
             pMutation[newID] = pMutation[ID]
             Polarity[newID] = Polarity[ID]
-            numDivisionsToDo[newID] = numDivFounderCells[ID]-1
-            numDivFounderCells[ID] -= 1
+            numDivisionsToDo[newID] = numDivisionsToDo[ID]-1
+            numDivisionsToDo[ID] -= 1
 
             #TODO change initialisation to also include IAmHighAg
             IAmHighAg[ID] = False
             IAmHighAg[newID] = False
 
             initiate_cycle(ID)
-            initialise_cells(newID)
+            initiate_cycle(newID)
 
             if t > mutationStartTime:
                 mutate(ID)
