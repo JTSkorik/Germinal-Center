@@ -43,12 +43,17 @@ Let the points on the surface of the sphere be the points which are missing a ne
 
 Algorithms state to randomly iterate through list. Currently doing it by shuffling list and iterating over. Since elements sometimes have to be deleted from these lists, would be better to randomly shuffle a list of indices so the element known to be deleted can be removed straight away. Can make the removal operation quicker by popping end of list and placing it in position of removed element. 
 
+Algorithm 4, progress\_cycle has been implemented poorly. Instead of having a lot of if statements, could store the states in a list in order of how they transition. Then only have to store the index for each cell and when they progress, add one to that index opposed to using lots of if statements. 
+
+
+
 
 
 
 \section{Algorithms.}
 
 \subsection{Parameters for each Cell}
+This table is heavily outdated. Will be updated to talk about the types of cells and their properties. 
 \begin{center}
 
 \begin{tabular}{|c|c|c|c|}

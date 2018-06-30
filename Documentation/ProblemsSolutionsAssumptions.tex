@@ -51,14 +51,46 @@ Algorithm 10 contains two function that have not been described.  &  & \tabularn
 \hline 
 The initial polarity of each cell is unknown.  & Randomly assign the polarity. & \tabularnewline
 \hline 
+
 Algorithm 3. The move function has a vector called North. North is
 a vector pointing towards the light zone and is not defined. This
 is peculiar as it only influences T cells and they are already in
 the Light Zone.  & Light zone is the bottom of the sphere, could use $(0,0,-1)$. & \tabularnewline
 \hline 
+
 Algorithm 3, in the move function we must not move the cell against the polarity. Hard to determine this. & We find the best possible points the cell can move to, in order and only consider the first 8 points, taking the best possible. If none of these points are free, the cell does not move.& 
 \tabularnewline
 \hline 
+
+Not explicitly stated if a cell is able to divide and have new cell a diagonal movement away. Similar for if we want to know if one type of Cell is next to another. & Allow cells to divide into positions diagonally away.  & 
+\tabularnewline
+\hline
+
+It is not clear how to determine where a cell is IAmHighAg and it does not state where a cell starts off as True or False. & Initially start all cells if IAmHighAg set to False. &
+\tabularnewline
+\hline
+
+It is not specified whether the 4 digit BCR value can start with a zero. Algorithm 1 suggests it can while figure 4 suggests it cannot. & We will not let the value start with zero. Python will automatically convert it to a 3 digit number and that will cause issues.  & Assume it cannot start with a zero. 
+\tabularnewline
+\hline
+
+Algorithm 4, sampling Gaussian Distribution to find a value for sep, the mean is given but standard deviation is not. & Let standard deviation be one. &
+\tabularnewline
+\hline
+
+Algorithm 5, C.clock suggest we add one to the clock counter. Next line says to test if C.clock > testDelay, which will always be true since testDelay is 0.02 . & Changed to C.clock increment by dt. & Assumed algorithm has a type. From notes, can somewhat assume C.clock is supposed to be C.tcClock which increments by dt and is not mentioned in the algorithms. 
+\tabularnewline
+\hline
+
+Algorithm 5, lines 8 and 9. What if he have multiple fragments next to the cell? & Found the maximum expression for the formula given on line 9. & Can only bond with one and the antigenAmounts wouldn't add.
+\tabularnewline
+\hline
+
+
+
+\tabularnewline
+\hline
+
 
 \end{longtable}
 \par\end{center}
