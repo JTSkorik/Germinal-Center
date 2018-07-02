@@ -270,17 +270,57 @@ def progress_fdc_selection(ID):
 
 
 # Algorithm 6 (Screening for T cell help at the Centrocyte Stage)
-def progress_tcell_selection():
-    pass
+def progress_tcell_selection(ID):
+    if State[ID] == 'FDCSelected':
+        pos = Position[ID]
+        for neighbour in Possible_Movements:
+            neighbour_pos = tuple(np.array(pos) + np.array(neighbour))
+            if Grid_Type[neighbour_pos] == 'TCell' and State[ID] != 'TCContact':
+                update_tcell(ID, Grid_ID[neighbour_pos])
+                State[ID] = 'TCContact'
+                tcClock[ID] = 0
+                tcSignalDuration[ID] = 0
+
+    elif State[ID] == 'TCContact':
+        tcClock[ID] += dt
+        lowest_antigen = True
+        for ID_BC in TCellInteractions[BCellInteractions[ID]]:
+            if ID != ID_BC and retainedAg[ID] <= retainedAg[ID_BC]:
+                lowest_antigen = False
+        if lowest_antigen:
+            tcSignalDuration[ID] += dt
+        if tcSignalDuration[ID] > tcRescueTime:
+            State[ID] = 'Selected'
+            selectedClock[ID] = 0
+            rand = random.uniform(0,1)
+            IndividualDifDelay[ID] = dif_delay * (1 + 0.1 * math.log(1 - rand) / rand)
+            liberate_tcell(ID, BCellInteractions[ID])
+        elif tcClock[ID] >= tcTime:
+            State[ID] = 'Apoptosis'
+            liberate_tcell(ID, BCellInteractions[ID])
+
+    elif State[ID] == 'Selected':
+        selectedClock[ID] += dt
+        if selectedClock[ID] > IndividualDifDelay[ID]:
+            if random.uniform(0,1) < pDif:
+                if random.uniform(0,1) < pDifToOut:
+                    differ_to_cc(ID)
+                else:
+                    differ_to_cb(ID)
+
 
 
 # Algorithm 7 (Updating the T cells according to B cells Interactions)
-def update_tcell():
-    pass
+def update_tcell(ID_B, ID_T):
+    TCellInteractions[ID_T].append(ID_B)
+    BCellInteractions[ID_B] = ID_T
+    State[ID_T] = 'TC-CC Contact'
 
-
-def liberate_tcell():
-    pass
+def liberate_tcell(ID_B, ID_T):
+    TCellInteractions[ID_T].remove(ID_B)
+    BCellInteractions[ID_B] = None
+    if not TCellInteractions[ID_T]:
+        State[ID_T] = 'TCNormal'
 
 
 # Algorithm 8 (Transition between Centroblasts, Centrocyctes, and Output Cells)
@@ -467,6 +507,7 @@ def hyphasma():
         for ID in random.shuffle(CCList):
             update_chemokines_receptors(ID)
             progress_fdc_selection(ID)
+            progress_tcell_selection(ID)
 
         t += dt
 
@@ -585,6 +626,9 @@ selectedClock = {}
 selectable = {}
 clock = {}
 Frag_Contacts = {}
+tcClock = {}
+tcSignalDuration = {}
+IndividualDifDelay = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -593,6 +637,11 @@ Grid_Type = {pos: None for pos in AllPoints}
 # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
 Grid_CXCL12 = {pos: None for pos in AllPoints}
 Grid_CXCL13 = {pos: None for pos in AllPoints}
+
+#B cells interacting with T cells:
+#TODO add this into initialisation. Careful using dictionaries as values.
+TCellInteractions = {}
+BCellInteractions = {}
 
 # Sequence variable for giving each cell an ID:
 cell_ID = 0
@@ -636,14 +685,23 @@ polarityIndex = 0.88
 pDivideAgAsymmetric = 0.72
 
 # Differentiation Rates
+start_differentiation = 72.0
 pDif = dt * 0.1
 DeleteAgInFreshCC = True
+dif_delay = 6.0
+pDifToOut_Target = 0.0 #LEDA Case
+smooth_differentiation_time = 12.0    #From width variable
+weight = 1 + math.exp((72.0 - t)/smooth_differentiation_time)
+pDifToOut = pDifToOut_Target/weight
+
 
 # Selection Steps
 testDelay = 0.02
 collectFDCperiod = 0.7
 antigenSaturation = 20
 pSel = dt * 0.05
+tcTime = 0.6
+tcRescueTime = 0.5
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
