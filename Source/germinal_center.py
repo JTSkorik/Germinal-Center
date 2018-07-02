@@ -9,19 +9,23 @@ import itertools
 def mutate(ID):
     if random.uniform(0, 1) < pMutation[ID]:
         index = random.choice([0, 1, 2, 3])
-        value = int(str(BCR[ID])[3 - index])
+        value = int(str(Cell_BCR[ID])[3 - index])
         if index == 3 and value == 1:
-            BCR[ID] += 10 ** index
+            Cell_BCR[ID] += 10 ** index
         else:
             if value == 0:
-                BCR[ID] += 10 ** index
+                Cell_BCR[ID] += 10 ** index
             elif value == 9:
-                BCR[ID] -= 10 ** index
+                Cell_BCR[ID] -= 10 ** index
             else:
                 if random.uniform(0, 1) < 0.5:
-                    BCR[ID] += 10 ** index
+                    Cell_BCR[ID] += 10 ** index
                 else:
-                    BCR[ID] -= 10 ** index
+                    Cell_BCR[ID] -= 10 ** index
+    if Cell_BCR[ID] not in BCR_values_all:
+        BCR_values_all.add(Cell_BCR[ID])
+        NumBCROutCells[Cell_BCR[ID]] = 0
+        NumBCROutCellsProduce[Cell_BCR[ID]] = 0
 
 
 # Algorithm 2 (Dynamic Updating of Chemotaxis)
@@ -189,7 +193,7 @@ def divide_and_mutate(ID):
             Grid_ID[divide_pos] = Type[newID]
             responsiveToSignalCXCL13[newID] = responsiveToSignalCXCL13[ID]
             responsiveToSignalCXCL12[newID] = responsiveToSignalCXCL12[ID]
-            BCR[newID] = BCR[ID]
+            Cell_BCR[newID] = Cell_BCR[ID]
             pMutation[newID] = pMutation[ID]
             Polarity[newID] = Polarity[ID]
             numDivisionsToDo[newID] = numDivisionsToDo[ID] - 1
@@ -245,9 +249,9 @@ def progress_fdc_selection(ID):
                         if FragmentAg[ID] > Frag_max:
                             Frag_max = FragmentAg[ID]
                             Frag_max_ID = Frag_ID
-                pBind = affinity(ID, Antigen_Value) * Frag_max / antigenSaturation
+                pBind = affinity(ID) * Frag_max / antigenSaturation
                 if random.choice(0, 1) < pBind:
-                    State[ID] = 'Contact'
+                    State[ID] = 'FDCContact'
                     Frag_Contacts[ID] = Frag_max_ID
                 else:
                     clock[ID] = 0
@@ -292,7 +296,7 @@ def progress_tcell_selection(ID):
         if tcSignalDuration[ID] > tcRescueTime:
             State[ID] = 'Selected'
             selectedClock[ID] = 0
-            rand = random.uniform(0,1)
+            rand = random.uniform(0, 1)
             IndividualDifDelay[ID] = dif_delay * (1 + 0.1 * math.log(1 - rand) / rand)
             liberate_tcell(ID, BCellInteractions[ID])
         elif tcClock[ID] >= tcTime:
@@ -302,12 +306,11 @@ def progress_tcell_selection(ID):
     elif State[ID] == 'Selected':
         selectedClock[ID] += dt
         if selectedClock[ID] > IndividualDifDelay[ID]:
-            if random.uniform(0,1) < pDif:
-                if random.uniform(0,1) < pDifToOut:
+            if random.uniform(0, 1) < pDif:
+                if random.uniform(0, 1) < pDifToOut:
                     differ_to_cc(ID)
                 else:
                     differ_to_cb(ID)
-
 
 
 # Algorithm 7 (Updating the T cells according to B cells Interactions)
@@ -315,6 +318,7 @@ def update_tcell(ID_B, ID_T):
     TCellInteractions[ID_T].append(ID_B)
     BCellInteractions[ID_B] = ID_T
     State[ID_T] = 'TC-CC Contact'
+
 
 def liberate_tcell(ID_B, ID_T):
     TCellInteractions[ID_T].remove(ID_B)
@@ -327,7 +331,7 @@ def liberate_tcell(ID_B, ID_T):
 def differ_to_out(ID):
     OutList.append(ID)
     initiate_chemokine_receptors(ID, 'OutCell')
-    # TODO NumOutCells
+    NumBCROutCells[Cell_BCR[ID]] += 1
     Grid_Type[Position[ID]] = 'OutCell'
 
 
@@ -335,7 +339,15 @@ def differ_to_cb(ID):
     CBList.append(ID)
     initiate_chemokine_receptors(ID, 'Centroblast')
     Grid_Type[Position[ID]] = 'Centroblast'
-    # Unfinished
+
+    pMutation[ID] = p_mut(t) + (pMutAfterSelection - p_mut(t)) * affinity(ID) ** pMutAffinityExponent
+    agFactor = numFDCContacts[ID] ** pMHCdepHill
+    num_div = pMHCdepMin + (pMHCdepMax - pMHCdepMin) * agFactor / (agFactor + pMHCdepK ** pMHCdepHill)
+    numDivisionsToDo[ID] = num_div
+    initiate_cycle(ID)
+
+    retainedAg[ID] = numFDCContacts[ID]
+    IAmHighAg[ID] = True
 
 
 def differ_to_cc(ID):
@@ -438,7 +450,7 @@ def initialise_cells():
         CBList.append(newID)
         Type[newID] = 'Centroblast'
         # TODO make up BCR values
-        BCR[newID] = None
+        Cell_BCR[newID] = None
         Position[newID] = pos
         pMutation[newID] = p_mut(t)
         numDivisionsToDo[newID] = numDivFounderCells
@@ -480,8 +492,12 @@ def hyphasma():
                 pass
                 # TODO lines 9 to 12
 
-        diffuse_signal('CXCL12', 'CXCL13')
-        # TODO lines 17 to 24
+        for bcr_seq in BCR_values_all:
+            transfert = math.floor(NumBCROutCells[bcr_seq] * pmDifferentiationRate * dt)
+            NumBCROutCells[bcr_seq] -= transfert
+            NumBCROutCellsProduce[bcr_seq] += transfert
+
+        # Todo lines 22 to 24
 
         for ID in random.shuffle(OutList):
             move(ID)
@@ -508,7 +524,18 @@ def hyphasma():
             update_chemokines_receptors(ID)
             progress_fdc_selection(ID)
             progress_tcell_selection(ID)
+            if State[ID] == 'Apoptosis':
+                CBList.remove(ID)
+            elif State[ID] not in ['FDCContact', 'TCContact']:
+                move(ID)
 
+        for ID in random.shuffle(TCList):
+            if State[ID] == 'TCNormal':
+                move(ID)
+
+        # At this point we can add in more B cells using a similar process to algorithm 9.
+
+        # TODO collision resolution, lines 68-72
         t += dt
 
 
@@ -522,8 +549,9 @@ def generate_spatial_points(n):
             for z in range(-n / 2, n / 2) if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (n / 2) ** 2]
 
 
-def affinity(ID, antigen):
-    return 1
+def affinity(ID):
+    hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(Cell_BCR[ID]), str(Antigen_Value)))
+    return math.exp(-(hamming_dist / 2.8) ** 2)
 
 
 def p_mut(time):
@@ -604,8 +632,14 @@ CCList = []
 TCList = []
 OutList = []
 
+# Possible initial BCR values
+BCR_values_initial = random.sample(range(1000, 10000), 8999)
+BCR_values_all = set(BCR_values_initial)
+NumBCROutCells = {bcr: 0 for bcr in BCR_values_initial}
+NumBCROutCellsProduce = {bcr: 0 for bcr in BCR_values_initial}
+
 # Here we will create empty dictionaries to store different properties. Will add them as necessary.
-BCR = {}
+Cell_BCR = {}
 pMutation = {}
 Type = {}
 State = {}
@@ -638,8 +672,8 @@ Grid_Type = {pos: None for pos in AllPoints}
 Grid_CXCL12 = {pos: None for pos in AllPoints}
 Grid_CXCL13 = {pos: None for pos in AllPoints}
 
-#B cells interacting with T cells:
-#TODO add this into initialisation. Careful using dictionaries as values.
+# B cells interacting with T cells:
+# TODO add this into initialisation.
 TCellInteractions = {}
 BCellInteractions = {}
 
@@ -648,6 +682,10 @@ cell_ID = 0
 
 # Dynamic number of divisions:
 numDivFounderCells = 12
+pMHCdepHill = 1.0
+pMHCdepMin = 1.0
+pMHCdepMax = 6.0
+pMHCdepK = 6.0
 
 # Production/ Diffusion Rates:
 p_mkCXCL12 = 4e-7
@@ -683,17 +721,18 @@ pNow = dt * 9.0
 mutationStartTime = 24.0
 polarityIndex = 0.88
 pDivideAgAsymmetric = 0.72
+pMutAfterSelection = 0.0
+pMutAffinityExponent = 1.0
 
 # Differentiation Rates
 start_differentiation = 72.0
 pDif = dt * 0.1
 DeleteAgInFreshCC = True
 dif_delay = 6.0
-pDifToOut_Target = 0.0 #LEDA Case
-smooth_differentiation_time = 12.0    #From width variable
-weight = 1 + math.exp((72.0 - t)/smooth_differentiation_time)
-pDifToOut = pDifToOut_Target/weight
-
+pDifToOut_Target = 0.0  # LEDA Case
+smooth_differentiation_time = 12.0  # From width variable
+weight = 1 + math.exp((72.0 - t) / smooth_differentiation_time)
+pDifToOut = pDifToOut_Target / weight
 
 # Selection Steps
 testDelay = 0.02
@@ -702,6 +741,9 @@ antigenSaturation = 20
 pSel = dt * 0.05
 tcTime = 0.6
 tcRescueTime = 0.5
+
+# Antibody
+pmDifferentiationRate = 24.0
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
