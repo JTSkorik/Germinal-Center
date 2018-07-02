@@ -235,17 +235,20 @@ def progress_fdc_selection(ID):
             clock[ID] += dt
             if clock[ID] > testDelay:
                 selectable[ID] = True
-                # Include zero in case no neighbouring fragments, then max is zero and binding probability is zero.
-                frag_antigen_amount = [0]
+                Frag_max = None
+                Frag_max_ID = None
+                pos = Position[ID]
                 for neighbour in Possible_Movements:
-                    pos = Position[ID]
                     neighbour_pos = tuple(np.array(pos) + np.array(neighbour))
                     if Grid_Type[neighbour_pos] in ['Fragment', 'FCell']:
                         Frag_ID = Grid_ID[neighbour_pos]
-                        frag_antigen_amount.append(FragmentAg[Frag_ID])
-                pBind = affinity(ID, Antigen_Value) * max(frag_antigen_amount) / antigenSaturation
-                if random.choice(0,1) < pBind:
+                        if FragmentAg[ID] > Frag_max:
+                            Frag_max = FragmentAg[ID]
+                            Frag_max_ID = Frag_ID
+                pBind = affinity(ID, Antigen_Value) * Frag_max / antigenSaturation
+                if random.choice(0, 1) < pBind:
                     State[ID] = 'Contact'
+                    Frag_Contacts[ID] = Frag_max_ID
                 else:
                     clock[ID] = 0
                     selectable[ID] = False
@@ -253,10 +256,17 @@ def progress_fdc_selection(ID):
             if numFDCContacts[ID] == 0:
                 State[ID] = 'Apoptosis'
             else:
-                State[ID] = 'FDCSlected'
+                State[ID] = 'FDCSelected'
 
-    if State[ID] == 'Contact':
-        pass
+    elif State[ID] == 'Contact':
+        selectedClock[ID] += dt
+        if random.uniform(0, 1) < pSel:
+            numFDCContacts[ID] += 1
+            Frag_ID = Frag_Contacts[ID]
+            FragmentAg[Frag_ID] -= 1
+            State[ID] = 'Unselected'
+            clock[ID] = 0
+            selectable[ID] = False
 
 
 # Algorithm 6 (Screening for T cell help at the Centrocyte Stage)
@@ -574,6 +584,7 @@ retainedAg = {}
 selectedClock = {}
 selectable = {}
 clock = {}
+Frag_Contacts = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -632,6 +643,7 @@ DeleteAgInFreshCC = True
 testDelay = 0.02
 collectFDCperiod = 0.7
 antigenSaturation = 20
+pSel = dt * 0.05
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
