@@ -82,12 +82,35 @@ Algorithm 5, C.clock suggest we add one to the clock counter. Next line says to 
 \tabularnewline
 \hline
 
-Algorithm 5, lines 8 and 9. What if he have multiple fragments next to the cell? & Found the maximum expression for the formula given on line 9. & Can only bond with one and the antigenAmounts wouldn't add.
+Algorithm 5, lines 8 and 9. What if he have multiple fragments next to the cell? & Found the maximum expression for the formula given on line 9. & Can only bond with one and the antigen amounts from multiple neighbouring fragments would not add. Bonds with the one with most	 antigen. 
 \tabularnewline
 \hline
 
+Algorithm 5 has two main if statements. The first if statement can change the state of a cell such that it also triggers the second if state. Same problem in algorithm 6. & Using an If and else if statement. & Assumed that only one if statement should be carried out since they both increment a time variable by the time step, dt. Would not make much sense having that increment twice in one time step. 
+\tabularnewline
+\hline
 
+Algorithm 5, line 31: AntigenAmount[f]- -, Antigen amount seems to be a float but this code says to remove one from it, seems strange. & Follow what it says exactly, subtract one from it. & Assume that a cell can take a certain amount of antigen from a fragment and without loss of generality, we can set this quantity to be one. 
+\tabularnewline
+\hline 
 
+Algorithm 6, line 13. Refers to B cells having antigens. & Treat this as amount of retained antigen. & 
+\tabularnewline
+\hline
+
+Algorithm 6, line 13 also does not say what to do if a B cell is in contact with multiple T cells. & We will only consider the first T cell in contact with a B cell in the first main if statement of the algorithm. This is not a great solution and will probably need refining.  & 
+\tabularnewline
+\hline
+
+When calculating affinity, we need to find hamming distance between B cell BCR and Antigen. Diagram suggests that we use something slightly different to the hamming distance. & We will use the traditional hamming distance. &
+\tabularnewline
+\hline
+
+Not given BCR values or antigen value. & Randomly generate 1000 four-digit values to act as BCR values. Let the antigen value be 1234 as a placeholder. &
+\tabularnewline
+\hline
+
+Algorithm 10, lines 18, 19, 20. We calculate transfert then subtract it from NumBCROutCells and NumBCROutCellsProduce. This calculation is almost surely going to end in a float. & Floor the result to return an integer. & 
 \tabularnewline
 \hline
 
