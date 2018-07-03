@@ -3,6 +3,9 @@ import random
 import math
 import numpy as np
 import itertools
+#TODO CXCL12 and CXCL13 made up values.
+#TODO documentation and comments
+#TODO signal_secretion, diffusion, and turn_angle functions.
 
 
 # Algorithm 1 (Mutation)
@@ -26,6 +29,7 @@ def mutate(ID):
         BCR_values_all.add(Cell_BCR[ID])
         NumBCROutCells[Cell_BCR[ID]] = 0
         NumBCROutCellsProduce[Cell_BCR[ID]] = 0
+        AntibodyPerBCR[Cell_BCR[ID]] = 0
 
 
 # Algorithm 2 (Dynamic Updating of Chemotaxis)
@@ -78,7 +82,6 @@ def move(ID):
         speed = None
         print("move: Invalid cell_type, {}".format(cell_type))
 
-    # TODO randomly assign polarity at initialisation
     if random.uniform(0, 1) < prob:
         theta = random.gauss(0, 1)
         phi = random.uniform(0, 2 * math.pi)
@@ -89,7 +92,6 @@ def move(ID):
         z = pos[2]
 
     if responsiveToSignalCXCL12[ID]:
-        # TODO implement boundary values, could automatically be set in Grid_CXCL12. (Have values outside sphere be constant)
         x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
         y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
         z_diff = Grid_CXCL12[(x, y, z + 1)] - Grid_CXCL12[(x, y, z - 1)]
@@ -103,7 +105,6 @@ def move(ID):
         Polarity[ID] += chemoFactor
 
     if responsiveToSignalCXCL13[ID]:
-        # TODO implement boundary values, could automatically be set in Grid_CXCL13. Given as zero in variable table. (Have values outside sphere be constant)
         x_diff = Grid_CXCL13[(x + 1, y, z)] - Grid_CXCL13[(x - 1, y, z)]
         y_diff = Grid_CXCL13[(x, y + 1, z)] - Grid_CXCL13[(x, y - 1, z)]
         z_diff = Grid_CXCL13[(x, y, z + 1)] - Grid_CXCL13[(x, y, z - 1)]
@@ -160,13 +161,13 @@ def initiate_cycle(ID):
 def progress_cycle(ID):
     cycleStartTime[ID] += dt
     if cycleStartTime[ID] > endOfThisPhase[ID]:
-        # TODO restructure how cell state is stored throughout code.
         if State[ID] == 'cb_G1':
             State[ID] = 'cb_S'
         elif State[ID] == 'cb_S':
             State[ID] = 'cb_G2'
         elif State[ID] == 'cb_G2':
             State[ID] = 'cb_divide'
+
         if State[ID] != 'cb_divide':
             endOfThisPhase[ID] = get_duration(State[ID])
             cycleStartTime[ID] = 0
@@ -199,7 +200,6 @@ def divide_and_mutate(ID):
             numDivisionsToDo[newID] = numDivisionsToDo[ID] - 1
             numDivisionsToDo[ID] -= 1
 
-            # TODO change initialisation to also include IAmHighAg
             IAmHighAg[ID] = False
             IAmHighAg[newID] = False
 
@@ -211,7 +211,6 @@ def divide_and_mutate(ID):
                 mutate(newID)
 
             if random.uniform(0, 1) < pDivideAgAsymmetric:
-                # TODO add retainedAg to initialisation, assume zero
                 if retainedAg[ID] == 0:
                     retainedAg[newID] = 0
                 else:
@@ -408,9 +407,8 @@ def initialise_cells():
         y = pos[1]
         z = pos[2]
         for i in range(1, DendriteLength + 1):
-            # TODO implement O(1) checks for whether position is valid.
-            for frag_pos in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z)]:
-                if frag_pos in LightZone and Grid_ID[frag_pos] is None:
+            for frag_pos in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
+                if (frag_pos[0] - 32.5) ** 2 + (frag_pos[1] - 32.5) ** 2 + (frag_pos[2] - 32.5) ** 2 <= (N/2 + 0.5) ** 2 and Grid_ID[frag_pos] is None:
                     newID = cell_ID
                     cell_ID += 1
                     fragments.append(newID)
@@ -418,15 +416,15 @@ def initialise_cells():
                     Grid_ID[frag_pos] = newID
                     Grid_Type[frag_pos] = 'Fragment'
 
-            # When Z axis is changing, we require extra check that we're still in light zone.
-            for frag_pos in [(x, y, z + i), (x, y, z - i)]:
-                if frag_pos in LightZone and Grid_ID[frag_pos] is None:
-                    newID = cell_ID
-                    cell_ID += 1
-                    fragments.append(newID)
-                    Position[newID] = pos
-                    Grid_ID[frag_pos] = newID
-                    Grid_Type[frag_pos] = 'Fragment'
+            # When Z axis is increasing, we require an extra check to ensure that we're still in light zone.
+            frag_pos = (x, y, z + i)
+            if (frag_pos[0] - 32.5) ** 2 + (frag_pos[1] - 32.5) ** 2 + (frag_pos[2] - 32.5) ** 2 <= 32.5 ** 2 and frag_pos[2] <= N/2 and Grid_ID[frag_pos] is None:
+                newID = cell_ID
+                cell_ID += 1
+                fragments.append(newID)
+                Position[newID] = pos
+                Grid_ID[frag_pos] = newID
+                Grid_Type[frag_pos] = 'Fragment'
 
         Fragments[FCell_ID] = fragments
 
@@ -435,6 +433,7 @@ def initialise_cells():
         agPerFrag = AntigenAmountPerFDC / FCellVol[FCell_ID]
         for Frag in [FCell_ID] + Fragments[FCell_ID]:
             FragmentAg[Frag] = agPerFrag
+            icAmount[Frag] = 0
 
     # Initialise Seeder Cells:
     for _ in range(NumSeeder):
@@ -449,13 +448,16 @@ def initialise_cells():
         # Add cell to appropriate lists and dictionaries
         CBList.append(newID)
         Type[newID] = 'Centroblast'
-        # TODO make up BCR values
-        Cell_BCR[newID] = None
+        Cell_BCR[newID] = random.choice(tuple(BCR_values_all))
         Position[newID] = pos
         pMutation[newID] = p_mut(t)
         numDivisionsToDo[newID] = numDivFounderCells
         Grid_ID[pos] = newID
         Grid_Type[pos] = 'Centroblast'
+        v = np.random.standard_normal(3)
+        Polarity[newID] = v / np.linalg.norm(v)
+        IAmHighAg[newID] = False
+        retainedAg[newID] = 0
 
         initiate_cycle(newID)
         initiate_chemokine_receptors(newID, 'Centroblast')
@@ -476,28 +478,35 @@ def initialise_cells():
         Position[newID] = pos
         Grid_ID[pos] = newID
         Grid_Type[pos] = 'TCell'
-
+        v = np.random.standard_normal(3)
+        Polarity[newID] = v / np.linalg.norm(v)
+        TCellInteractions[newID] = []
 
 # Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
     global t
     global cell_ID
     while t <= tmax:
+        NumBCells.append(len(CCList) + len(CBList))
+
         for StromalCell in StormaList:
             signal_secretion(StromalCell, 'CXCL12', p_mkCXCL12)
+
         for FCell in random.shuffle(FDCList):
             signal_secretion(FCell, 'CXCL13', p_mkCXCL13)
             fragments = Fragments[FCell]
             for frag in fragments:
-                pass
-                # TODO lines 9 to 12
+                for bcr_seq in BCR_values_all:
+                    d_ic = dt * (k_on * FragmentAg[frag] * AntibodyPerBCR[bcr_seq] - antibodyDegradation * AntibodyPerBCR[bcr_seq])
+                    FragmentAg[frag] -= d_ic
+                    icAmount[frag] += d_ic
 
         for bcr_seq in BCR_values_all:
             transfert = math.floor(NumBCROutCells[bcr_seq] * pmDifferentiationRate * dt)
             NumBCROutCells[bcr_seq] -= transfert
             NumBCROutCellsProduce[bcr_seq] += transfert
-
-        # Todo lines 22 to 24
+            AntibodyPerBCR[bcr_seq] = NumBCROutCellsProduce[bcr_seq] * abProdFactor - antibodyDegradation * \
+                                                                                      AntibodyPerBCR[bcr_seq]
 
         for ID in random.shuffle(OutList):
             move(ID)
@@ -553,6 +562,10 @@ def affinity(ID):
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(Cell_BCR[ID]), str(Antigen_Value)))
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
+def k_off(bcr):
+    hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(Antigen_Value)))
+    return k_on / (10 ** (expMin + math.exp(-(hamming_dist / 2.8) ** 2) * (expMax - expMin)) )
+
 
 def p_mut(time):
     '''Finds the probability of mutation
@@ -595,8 +608,13 @@ def diffuse_signal(Chem1, Chem2):
 
 
 def is_surface_point(position):
-    pass
-
+    pos = np.array(position)
+    surface = False
+    for movement in [np.array([1,0,0]), np.array([-1,0,0]), np.array([0,1,0]), np.array([0,-1,0]), np.array([0,0,1]), np.array([0,0,-1])]:
+        neighbour_pos = pos + movement
+        if (neighbour_pos[0] - 32.5)** 2 + (neighbour_pos[1] - 32.5)** 2 + (neighbour_pos[2] - 32.5)** 2 > (N/2 + 0.5) ** 2:
+            surface = True
+    return surface
 
 # Set-up for simulation:
 Antigen_Value = 1234
@@ -637,6 +655,7 @@ BCR_values_initial = random.sample(range(1000, 10000), 8999)
 BCR_values_all = set(BCR_values_initial)
 NumBCROutCells = {bcr: 0 for bcr in BCR_values_initial}
 NumBCROutCellsProduce = {bcr: 0 for bcr in BCR_values_initial}
+AntibodyPerBCR = {bcr: 0 for bcr in BCR_values_initial}
 
 # Here we will create empty dictionaries to store different properties. Will add them as necessary.
 Cell_BCR = {}
@@ -663,6 +682,7 @@ Frag_Contacts = {}
 tcClock = {}
 tcSignalDuration = {}
 IndividualDifDelay = {}
+icAmount = {}
 
 # Dictionaries storing what is at each location. Initially empty, so 'None'.
 Grid_ID = {pos: None for pos in AllPoints}
@@ -673,7 +693,6 @@ Grid_CXCL12 = {pos: None for pos in AllPoints}
 Grid_CXCL13 = {pos: None for pos in AllPoints}
 
 # B cells interacting with T cells:
-# TODO add this into initialisation.
 TCellInteractions = {}
 BCellInteractions = {}
 
@@ -744,15 +763,28 @@ tcRescueTime = 0.5
 
 # Antibody
 pmDifferentiationRate = 24.0
+antibodies_production = 1e-17
+V_blood = 1e-2
+N_GC = 1000
+abProdFactor = antibodies_production * dt * N_GC * V_blood * 1e15
+antibodyDegradation = 30
+k_on = 3.6e9
+
+expMin = 5.5
+expMax = 9.5
 
 # Movements:
 Possible_Movements = list(itertools.product([-1, 0, 1], repeat=3))
 Possible_Movements.remove((0, 0, 0))
 
+# For plots/tests:
+NumBCells = []
+
 # Run Simulation:
 if __name__ == "__main__":
     initialise_cells()
-
+    NumBCells.append(len(CCList) + len(CBList))
+    hyphasma()
 
 
 
