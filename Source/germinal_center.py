@@ -3,6 +3,7 @@ import random
 import math
 import numpy as np
 import itertools
+import matplotlib.pyplot as plt
 #TODO CXCL12 and CXCL13 made up values.
 #TODO documentation and comments
 #TODO signal_secretion, diffusion, and turn_angle functions.
@@ -64,6 +65,11 @@ def update_chemokines_receptors(ID):
 
 # Algorithm 3 (Updating Position and Polarity of cells at each time-point)
 def move(ID):
+    pos = Position[ID]
+    x = pos[0]
+    y = pos[1]
+    z = pos[2]
+
     cell_type = Type[ID]
     if cell_type == 'Centrocyte':
         prob = pLTCentrocyte
@@ -86,46 +92,44 @@ def move(ID):
         theta = random.gauss(0, 1)
         phi = random.uniform(0, 2 * math.pi)
         Polarity[ID] = turn_angle(Polarity[ID], theta, phi)
-        pos = Position[ID]
-        x = pos[0]
-        y = pos[1]
-        z = pos[2]
 
-    if responsiveToSignalCXCL12[ID]:
-        x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
-        y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
-        z_diff = Grid_CXCL12[(x, y, z + 1)] - Grid_CXCL12[(x, y, z - 1)]
 
-        Gradient_CXCL12 = np.array([x_diff / (2 * dx), y_diff / (2 * dx), z_diff / (2 * dx)])
+        if responsiveToSignalCXCL12[ID]:
+            x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
+            y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
+            z_diff = Grid_CXCL12[(x, y, z + 1)] - Grid_CXCL12[(x, y, z - 1)]
 
-        mag_Gradient_CXCL12 = np.linalg.norm(Gradient_CXCL12)
-        chemoFactor = (chemoMax / (
-            1 + math.exp(chemoSteep * (chemoHalf - 2 * dx * mag_Gradient_CXCL12)))) * Gradient_CXCL12
+            Gradient_CXCL12 = np.array([x_diff / (2 * dx), y_diff / (2 * dx), z_diff / (2 * dx)])
 
-        Polarity[ID] += chemoFactor
+            mag_Gradient_CXCL12 = np.linalg.norm(Gradient_CXCL12)
+            chemoFactor = (chemoMax / (
+                1 + math.exp(chemoSteep * (chemoHalf - 2 * dx * mag_Gradient_CXCL12)))) * Gradient_CXCL12
 
-    if responsiveToSignalCXCL13[ID]:
-        x_diff = Grid_CXCL13[(x + 1, y, z)] - Grid_CXCL13[(x - 1, y, z)]
-        y_diff = Grid_CXCL13[(x, y + 1, z)] - Grid_CXCL13[(x, y - 1, z)]
-        z_diff = Grid_CXCL13[(x, y, z + 1)] - Grid_CXCL13[(x, y, z - 1)]
+            Polarity[ID] += chemoFactor
 
-        Gradient_CXCL13 = np.array([x_diff / (2 * dx), y_diff / (2 * dx), z_diff / (2 * dx)])
-        mag_Gradient_CXCL13 = np.linalg.norm(Gradient_CXCL13)
-        chemoFactor = (chemoMax / (
-            1 + math.exp(chemoSteep * (chemoHalf - 2 * dx * mag_Gradient_CXCL13)))) * Gradient_CXCL13
+        if responsiveToSignalCXCL13[ID]:
+            x_diff = Grid_CXCL13[(x + 1, y, z)] - Grid_CXCL13[(x - 1, y, z)]
+            y_diff = Grid_CXCL13[(x, y + 1, z)] - Grid_CXCL13[(x, y - 1, z)]
+            z_diff = Grid_CXCL13[(x, y, z + 1)] - Grid_CXCL13[(x, y, z - 1)]
 
-        Polarity[ID] += chemoFactor
+            Gradient_CXCL13 = np.array([x_diff / (2 * dx), y_diff / (2 * dx), z_diff / (2 * dx)])
+            mag_Gradient_CXCL13 = np.linalg.norm(Gradient_CXCL13)
+            chemoFactor = (chemoMax / (
+                1 + math.exp(chemoSteep * (chemoHalf - 2 * dx * mag_Gradient_CXCL13)))) * Gradient_CXCL13
 
-    if Type[ID] == 'TCell':
-        Polarity[ID] = (1.0 - northweight) * Polarity[ID] + northweight * north
+            Polarity[ID] += chemoFactor
 
-    Polarity[ID] = Polarity[ID] / np.linalg.norm(Polarity[ID])
+        if Type[ID] == 'TCell':
+            Polarity[ID] = (1.0 - northweight) * Polarity[ID] + northweight * north
+
+        Polarity[ID] = Polarity[ID] / np.linalg.norm(Polarity[ID])
+
     pDifu = speed * dt / dx
 
     if random.uniform(0, 1) < pDifu:
         WantedPosition = np.asarray(pos) + Polarity[ID]
         Neighbours = [np.asarray(Movement) + np.asarray(pos) for Movement in
-                      Possible_Movements]
+                      Possible_Movements if np.linalg.norm(np.asarray(Movement) + np.asarray(pos) - np.array([N/2 + 0.5, N/2 + 0.5, N/2 + 0.5])) <= (N/2)]
         Neighbours.sort(key=lambda x: np.linalg.norm(x - WantedPosition))
         count = 0
         moved = False
@@ -144,7 +148,8 @@ def move(ID):
 
 
 def turn_angle(pol, theta, phi):
-    return 1
+    v = np.random.standard_normal(3)
+    return v / np.linalg.norm(v)
 
 
 # Algorithm 4 (Updating events at the Centroblast Stage)
@@ -154,7 +159,7 @@ def initiate_cycle(ID):
     else:
         State[ID] = 'cb_G1'
         cycleStartTime[ID] = 0
-        endOfThisPhase[ID] = get_duration(State[cell_ID])
+        endOfThisPhase[ID] = get_duration(State[ID])
         numDivisionsToDo[ID] = numDivisionsToDo[ID]
 
 
@@ -401,14 +406,14 @@ def initialise_cells():
         Grid_Type[pos] = 'FCell'
 
         # Find the fragments for the FCell
-        FCell_ID = cell_ID
+        FCell_ID = newID
         fragments = []
         x = pos[0]
         y = pos[1]
         z = pos[2]
         for i in range(1, DendriteLength + 1):
             for frag_pos in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
-                if (frag_pos[0] - 32.5) ** 2 + (frag_pos[1] - 32.5) ** 2 + (frag_pos[2] - 32.5) ** 2 <= (N/2 + 0.5) ** 2 and Grid_ID[frag_pos] is None:
+                if (frag_pos[0] - (N/2 + 0.5)) ** 2 + (frag_pos[1] - (N/2 + 0.5)) ** 2 + (frag_pos[2] - (N/2 + 0.5)) ** 2 <= (N/2) ** 2 and Grid_ID[frag_pos] is None:
                     newID = cell_ID
                     cell_ID += 1
                     fragments.append(newID)
@@ -418,7 +423,7 @@ def initialise_cells():
 
             # When Z axis is increasing, we require an extra check to ensure that we're still in light zone.
             frag_pos = (x, y, z + i)
-            if (frag_pos[0] - 32.5) ** 2 + (frag_pos[1] - 32.5) ** 2 + (frag_pos[2] - 32.5) ** 2 <= 32.5 ** 2 and frag_pos[2] <= N/2 and Grid_ID[frag_pos] is None:
+            if (frag_pos[0] - (N/2 + 0.5)) ** 2 + (frag_pos[1] - (N/2 + 0.5)) ** 2 + (frag_pos[2] - (N/2 + 0.5)) ** 2 <= (N/2) ** 2 and frag_pos[2] <= N/2 and Grid_ID[frag_pos] is None:
                 newID = cell_ID
                 cell_ID += 1
                 fragments.append(newID)
@@ -463,7 +468,7 @@ def initialise_cells():
         initiate_chemokine_receptors(newID, 'Centroblast')
 
     # Initialise T Cells:
-    for _ in range(NumTC):
+    for i in range(NumTC):
         pos = random.choice(LightZone)  # Find empty location in light zone
         while Grid_ID[pos] is not None:
             pos = random.choice(LightZone)
@@ -481,18 +486,24 @@ def initialise_cells():
         v = np.random.standard_normal(3)
         Polarity[newID] = v / np.linalg.norm(v)
         TCellInteractions[newID] = []
+        State[newID] = 'TCNormal'
+        responsiveToSignalCXCL12[newID] = False
+        responsiveToSignalCXCL13[newID] = False
 
 # Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
     global t
     global cell_ID
     while t <= tmax:
+        print(t)
         NumBCells.append(len(CCList) + len(CBList))
+        times.append(t)
 
         for StromalCell in StormaList:
             signal_secretion(StromalCell, 'CXCL12', p_mkCXCL12)
 
-        for FCell in random.shuffle(FDCList):
+        random.shuffle(FDCList)
+        for FCell in FDCList:
             signal_secretion(FCell, 'CXCL13', p_mkCXCL13)
             fragments = Fragments[FCell]
             for frag in fragments:
@@ -508,13 +519,15 @@ def hyphasma():
             AntibodyPerBCR[bcr_seq] = NumBCROutCellsProduce[bcr_seq] * abProdFactor - antibodyDegradation * \
                                                                                       AntibodyPerBCR[bcr_seq]
 
-        for ID in random.shuffle(OutList):
+        random.shuffle(OutList)
+        for ID in OutList:
             move(ID)
             pos = Position[ID]
             if is_surface_point(pos):
                 OutList.remove(ID)
 
-        for ID in random.shuffle(CBList):
+        random.shuffle(CBList)
+        for ID in CBList:
             update_chemokines_receptors(ID)
             progress_cycle(ID)
             if State[ID] == 'cb_divide':
@@ -529,7 +542,8 @@ def hyphasma():
             if State[ID] != 'cb_M':
                 move(ID)
 
-        for ID in random.shuffle(CCList):
+        random.shuffle(CCList)
+        for ID in CCList:
             update_chemokines_receptors(ID)
             progress_fdc_selection(ID)
             progress_tcell_selection(ID)
@@ -538,7 +552,8 @@ def hyphasma():
             elif State[ID] not in ['FDCContact', 'TCContact']:
                 move(ID)
 
-        for ID in random.shuffle(TCList):
+        random.shuffle(TCList)
+        for ID in TCList:
             if State[ID] == 'TCNormal':
                 move(ID)
 
@@ -603,7 +618,7 @@ def signal_secretion(ID, chem, chem_prod_rate):
     pass
 
 
-def diffuse_signal(Chem1, Chem2):
+def diffuse_signal():
     pass
 
 
@@ -612,7 +627,7 @@ def is_surface_point(position):
     surface = False
     for movement in [np.array([1,0,0]), np.array([-1,0,0]), np.array([0,1,0]), np.array([0,-1,0]), np.array([0,0,1]), np.array([0,0,-1])]:
         neighbour_pos = pos + movement
-        if (neighbour_pos[0] - 32.5)** 2 + (neighbour_pos[1] - 32.5)** 2 + (neighbour_pos[2] - 32.5)** 2 > (N/2 + 0.5) ** 2:
+        if (neighbour_pos[0] - (N/2 + 0.5))** 2 + (neighbour_pos[1] - (N/2 + 0.5))** 2 + (neighbour_pos[2] - (N/2 + 0.5))** 2 > (N/2) ** 2:
             surface = True
     return surface
 
@@ -620,7 +635,7 @@ def is_surface_point(position):
 Antigen_Value = 1234
 
 # Distance Variables:
-N = 64  # Diameter of sphere/GC
+N = 16  # Diameter of sphere/GC
 AllPoints = generate_spatial_points(N)
 DarkZone = [point for point in AllPoints if point[2] > N / 2]
 LightZone = [point for point in AllPoints if point[2] <= N / 2]
@@ -630,14 +645,14 @@ dx = 5
 # Time Variables:
 dt = 0.002
 tmin = 0.0
-tmax = 504.0
+tmax = 3.0
 t = 0.0  # Current time
 
 # Initialisation
-NumStromalCells = 300
-NumFDC = 200
-NumSeeder = 3
-NumTC = 250
+NumStromalCells = 30
+NumFDC = 20
+NumSeeder = 1
+NumTC = 25
 
 DendriteLength = 8
 AntigenAmountPerFDC = 3000
@@ -689,8 +704,10 @@ Grid_ID = {pos: None for pos in AllPoints}
 Grid_Type = {pos: None for pos in AllPoints}
 
 # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
-Grid_CXCL12 = {pos: None for pos in AllPoints}
-Grid_CXCL13 = {pos: None for pos in AllPoints}
+Grid_CXCL12 = {pos: random.uniform(80e-11, 80e-10) for pos in [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in range(-N / 2, N / 2)
+            for z in range(-N / 2, N / 2)]}
+Grid_CXCL13 = {pos: random.uniform(0.1e-10, 0.1e-9) for pos in [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in range(-N / 2,  N / 2)
+            for z in range(-N / 2, N / 2)]}
 
 # B cells interacting with T cells:
 TCellInteractions = {}
@@ -709,6 +726,8 @@ pMHCdepK = 6.0
 # Production/ Diffusion Rates:
 p_mkCXCL12 = 4e-7
 p_mkCXCL13 = 1e-8
+CXCL13_DiffRate = 1000 * 25 * 0.002
+
 
 # Persistent Length time
 pLTCentrocyte = 0.025
@@ -779,13 +798,15 @@ Possible_Movements.remove((0, 0, 0))
 
 # For plots/tests:
 NumBCells = []
+times = [t]
 
 # Run Simulation:
 if __name__ == "__main__":
     initialise_cells()
     NumBCells.append(len(CCList) + len(CBList))
     hyphasma()
-
+    plt.plot(times, NumBCells)
+    plt.show()
 
 
 
