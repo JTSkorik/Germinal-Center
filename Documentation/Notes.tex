@@ -45,8 +45,9 @@ Algorithms state to randomly iterate through list. Currently doing it by shuffli
 
 Algorithm 4, progress\_cycle has been implemented poorly. Instead of having a lot of if statements, could store the states in a list in order of how they transition. Then only have to store the index for each cell and when they progress, add one to that index opposed to using lots of if statements. 
 
+The following was followed to generate random unit vectors for initial polarity: https://codereview.stackexchange.com/questions/77927/generate-random-unit-vectors-around-circle
 
-
+The germinal center has a maximum size. We generate ID values from 0 to the maximum number of cells in the germinal center and store/track them in a list. We assign each new cell an ID number (from the end of the list, using pop() to ensure O(1) operation) and when a cell dies, we append its ID value back into the list. In a numpy array of fixed size, we will store the properties of each cell as a named tuple. To access the correct properties, the associated ID to a cell will be used as the index in the numpy array. Unassigned IDs will contain None values in numpy array and when a cell gets removed from the simulation, the numpy array index is converted back to being a None value. 
 
 
 
