@@ -5,17 +5,27 @@ import numpy as np
 import itertools
 import matplotlib.pyplot as plt
 
+# from enum import Enum
+
 
 # TODO CXCL12 and CXCL13 made up values.
 # TODO documentation and comments
 # TODO signal_secretion, diffusion, and turn_angle functions.
 
 
-# Algorithm 1 (Mutation)
 def mutate(ID):
+    """
+    Algorithm 1, Mutation.
+    Mutates the BCR value for a cell with a certain probability.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+    # Determine where the BCR value should mutate.
     if random.uniform(0, 1) < pMutation[ID]:
+        # Choose index and value of BCR to change.
         index = random.choice([0, 1, 2, 3])
         value = int(str(Cell_BCR[ID])[3 - index])
+        # Randomly apply plus or minus one to one BCR position.
         if index == 3 and value == 1:
             Cell_BCR[ID] += 10 ** index
         else:
@@ -28,6 +38,7 @@ def mutate(ID):
                     Cell_BCR[ID] += 10 ** index
                 else:
                     Cell_BCR[ID] -= 10 ** index
+    # If new BCR value obtained, we need to start tracking its stats.
     if Cell_BCR[ID] not in BCR_values_all:
         BCR_values_all.add(Cell_BCR[ID])
         NumBCROutCells[Cell_BCR[ID]] = 0
@@ -35,22 +46,33 @@ def mutate(ID):
         AntibodyPerBCR[Cell_BCR[ID]] = 0
 
 
-# Algorithm 2 (Dynamic Updating of Chemotaxis)
-def initiate_chemokine_receptors(ID, cell_type):
-    if cell_type == 'Centroblast':
+def initiate_chemokine_receptors(ID):
+    """
+    Algorithm 2, Dynamic Updating of Chemotaxis.
+    Used to determine the attributes responsive_to_CXCL12 and responsive_to_CXCL13 of a cell given its type.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+    if Type[ID] == 'Centroblast':
         responsiveToSignalCXCL12[ID] = True
         responsiveToSignalCXCL13[ID] = False
-    elif cell_type == 'Centrocyte':
+    elif Type[ID] == 'Centrocyte':
         responsiveToSignalCXCL12[ID] = False
         responsiveToSignalCXCL13[ID] = True
-    elif cell_type == 'OutCell':
+    elif Type[ID] == 'OutCell':
         responsiveToSignalCXCL12[ID] = False
         responsiveToSignalCXCL13[ID] = True
     else:
-        print("initiate_chemokine_receptors: Invalid cell_type, {}".format(cell_type))
+        print("initiate_chemokine_receptors: Invalid cell_type, {}".format(Type[ID]))
 
 
 def update_chemokines_receptors(ID):
+    """
+    Algorithm 2, Dynamic Updating of Chemotaxis.
+    Used to update the attributes responsive_to_CXCL12 and responsive_to_CXCL13 of a cell given its type and state.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
     pos = Position[ID]
     if Type[ID] == 'Centrocyte':
         if State[ID] == 'Unselected':
@@ -65,13 +87,23 @@ def update_chemokines_receptors(ID):
             responsiveToSignalCXCL12[ID] = True
 
 
-# Algorithm 3 (Updating Position and Polarity of cells at each time-point)
+
 def move(ID):
+    # TODO add check that the cells are staying inside their respective zones.
+    """
+    Algorithm 3, Updating Position and Polarity of cells at each time-point.
+    Updates the polarity of a cell and then will move the cell within the Germinal center. Both events occur stochastically.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+
+    # Obtain current position of cell.
     pos = Position[ID]
     x = pos[0]
     y = pos[1]
     z = pos[2]
 
+    # Obtain required parameters
     cell_type = Type[ID]
     if cell_type == 'Centrocyte':
         prob = pLTCentrocyte
@@ -90,11 +122,14 @@ def move(ID):
         speed = None
         print("move: Invalid cell_type, {}".format(cell_type))
 
+    # Calculate new polarity
     if random.uniform(0, 1) < prob:
+        # Turning angles influence
         theta = random.gauss(0, 1)
         phi = random.uniform(0, 2 * math.pi)
-        Polarity[ID] = turn_angle(Polarity[ID], theta, phi)
+        turn_angle(ID, theta, phi)
 
+        # Influence due to CXCL12
         if responsiveToSignalCXCL12[ID]:
             x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
             y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
@@ -108,6 +143,7 @@ def move(ID):
 
             Polarity[ID] += chemoFactor
 
+        # Influence due to CXCL13
         if responsiveToSignalCXCL13[ID]:
             x_diff = Grid_CXCL13[(x + 1, y, z)] - Grid_CXCL13[(x - 1, y, z)]
             y_diff = Grid_CXCL13[(x, y + 1, z)] - Grid_CXCL13[(x, y - 1, z)]
@@ -120,22 +156,27 @@ def move(ID):
 
             Polarity[ID] += chemoFactor
 
+        # Influence specific to T Cells
         if Type[ID] == 'TCell':
             Polarity[ID] = (1.0 - northweight) * Polarity[ID] + northweight * north
 
         Polarity[ID] = Polarity[ID] / np.linalg.norm(Polarity[ID])
 
+    # Probability of movement
     pDifu = speed * dt / dx
 
     if random.uniform(0, 1) < pDifu:
+        # Find possible new positions based in order of best preference
         WantedPosition = np.asarray(pos) + Polarity[ID]
         Neighbours = [np.asarray(Movement) + np.asarray(pos) for Movement in
                       Possible_Movements if np.linalg.norm(
                 np.asarray(Movement) + np.asarray(pos) - np.array([N / 2 + 0.5, N / 2 + 0.5, N / 2 + 0.5])) <= (N / 2)]
         Neighbours.sort(key=lambda x: np.linalg.norm(x - WantedPosition))
+
+        # Move the cell to best available position that isn't against direction of polarity
         count = 0
         moved = False
-        while not moved and count <= 8:
+        while not moved and count <= 9:
             new_pos = tuple(Neighbours[count])
             if Grid_ID[new_pos] is None:
                 Position[ID] = new_pos
@@ -149,23 +190,44 @@ def move(ID):
             count += 1
 
 
-def turn_angle(pol, theta, phi):
+def turn_angle(ID, theta, phi):
+    """
+    Algorithm 3 (Updating Position and Polarity of cells at each time-point)
+    Rotates the polarity of a cell by the given angles.
+    Yet to be finished.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :param theta: float, randomly generated turning angle.
+    :param phi: float, another randomly generated turning angle between 0 and 2pi.
+    :return:
+    """
     v = np.random.standard_normal(3)
-    return v / np.linalg.norm(v)
+    Polarity[ID] = v / np.linalg.norm(v)
 
 
-# Algorithm 4 (Updating events at the Centroblast Stage)
 def initiate_cycle(ID):
+    """
+    Algorithm 3, Updating events at the Centroblast Stage.
+    Sets the state for a cell depending on how many divisions left to complete.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
     if numDivisionsToDo[ID] == 0:
         State[ID] = 'cb_stop_dividing'
     else:
         State[ID] = 'cb_G1'
         cycleStartTime[ID] = 0
-        endOfThisPhase[ID] = get_duration(State[ID])
+        endOfThisPhase[ID] = get_duration(ID)
         numDivisionsToDo[ID] = numDivisionsToDo[ID]
 
 
 def progress_cycle(ID):
+    """
+    Algorithm 4, Updating events at the Centroblast Stage.
+    Progresses the cell to its next state and calculates how long it till next change of state.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+    # Progress cell into its next state
     cycleStartTime[ID] += dt
     if cycleStartTime[ID] > endOfThisPhase[ID]:
         if State[ID] == 'cb_G1':
@@ -175,24 +237,35 @@ def progress_cycle(ID):
         elif State[ID] == 'cb_G2':
             State[ID] = 'cb_divide'
 
+        # Finds time till end of new state.
         if State[ID] != 'cb_divide':
-            endOfThisPhase[ID] = get_duration(State[ID])
+            endOfThisPhase[ID] = get_duration(ID)
             cycleStartTime[ID] = 0
 
 
 def divide_and_mutate(ID, t):
-    pos = Position[ID]
+    """
+    Algorithm 4, Updating events at the Centroblast Stage.
+    Takes a cell and divides it with probability pNow. Will also attempt to mutate the cells.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :param t: float, current time of the simulation.
+    :return:
+    """
     if random.uniform(0, 1) < pNow:
+        # Find all empty positions neighbouring cell.
+        pos = Position[ID]
         empty_neighbours = []
         for possible_neighbour in Possible_Movements:
             new_pos = tuple(np.array(pos) + np.array(possible_neighbour))
             if Grid_ID[new_pos] is None:
                 empty_neighbours.append(tuple(new_pos))
+
+        # Randomly choose one position for new cell
         if empty_neighbours:
             divide_pos = random.choice(empty_neighbours)
 
+            # Generate a new ID for the cell and copy over the properties from the old cell.
             newID = AvailableCellIDs.pop()
-
             Position[newID] = divide_pos
             Type[newID] = Type[ID]
             Grid_ID[divide_pos] = newID
@@ -208,13 +281,16 @@ def divide_and_mutate(ID, t):
             IAmHighAg[ID] = False
             IAmHighAg[newID] = False
 
+            # Initiate the cycle for each cell.
             initiate_cycle(ID)
             initiate_cycle(newID)
 
+            # Mutate the cells
             if t > mutationStartTime:
                 mutate(ID)
                 mutate(newID)
 
+            # Assign amount of retained antigen to each cell
             if random.uniform(0, 1) < pDivideAgAsymmetric:
                 if retainedAg[ID] == 0:
                     retainedAg[newID] = 0
@@ -235,14 +311,22 @@ def divide_and_mutate(ID, t):
                 retainedAg[ID] = retainedAg[ID] / 2
 
 
-# Algorithm 5 (Antigen Collection from FDCs)
 def progress_fdc_selection(ID):
+    """
+    Algorithm 5, Antigen Collection from FDCs.
+    Allows for centrocytes to collect antigen from neighbouring F cells / fragments.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+
     if State[ID] == 'Unselected':
+        # Progress selected clock and check if able to collect antigen.
         selectedClock[ID] += dt
         if selectedClock[ID] <= collectFDCperiod:
             clock[ID] += dt
             if clock[ID] > testDelay:
                 selectable[ID] = True
+                # Find frag component with largest amount of antigen.
                 Frag_max = None
                 Frag_max_ID = None
                 pos = Position[ID]
@@ -254,6 +338,7 @@ def progress_fdc_selection(ID):
                             Frag_max = FragmentAg[ID]
                             Frag_max_ID = Frag_ID
                 pBind = affinity(ID) * Frag_max / antigenSaturation
+                # Bind cell and fragment with probability pBind or reset clock.
                 if random.choice(0, 1) < pBind:
                     State[ID] = 'FDCContact'
                     Frag_Contacts[ID] = Frag_max_ID
@@ -261,6 +346,7 @@ def progress_fdc_selection(ID):
                     clock[ID] = 0
                     selectable[ID] = False
         else:
+            # Cell dies if it doesn't get any contacts.
             if numFDCContacts[ID] == 0:
                 State[ID] = 'Apoptosis'
             else:
@@ -277,12 +363,21 @@ def progress_fdc_selection(ID):
             selectable[ID] = False
 
 
-# Algorithm 6 (Screening for T cell help at the Centrocyte Stage)
+
 def progress_tcell_selection(ID, t):
+    """
+    Algorithm 6, Screening for T cell help at Centrocyte Stage.
+
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :param t: t: float, current time of the simulation.
+    :return:
+    """
     if State[ID] == 'FDCSelected':
+        # Find if there is a neighbouring T cell.
         pos = Position[ID]
         for neighbour in Possible_Movements:
             neighbour_pos = tuple(np.array(pos) + np.array(neighbour))
+            # If there is a neighbouring T cell, we record the contact.
             if Grid_Type[neighbour_pos] == 'TCell' and State[ID] != 'TCContact':
                 update_tcell(ID, Grid_ID[neighbour_pos])
                 State[ID] = 'TCContact'
@@ -291,6 +386,7 @@ def progress_tcell_selection(ID, t):
 
     elif State[ID] == 'TCContact':
         tcClock[ID] += dt
+        # Check is current cell has least amount of antigens compared to T cells neighbouring cells.
         lowest_antigen = True
         for ID_BC in TCellInteractions[BCellInteractions[ID]]:
             if ID != ID_BC and retainedAg[ID] <= retainedAg[ID_BC]:
@@ -312,38 +408,69 @@ def progress_tcell_selection(ID, t):
         if selectedClock[ID] > IndividualDifDelay[ID]:
             if random.uniform(0, 1) < pDif:
                 if random.uniform(0, 1) < pDifToOut:
-                    differ_to_cc(ID)
+                    differ_to_out(ID)
                 else:
                     differ_to_cb(ID, t)
 
 
-# Algorithm 7 (Updating the T cells according to B cells Interactions)
+
 def update_tcell(ID_B, ID_T):
+    """
+    Algorithm 7, Updating the T cells according to B cells interactions.
+    Updates records of whether cells are interacting, specifically marking two cells as interacting.
+    :param ID_B: integer, determines which B cell in the pop we are talking about.
+    :param ID_T: integer, determines which T cell in the pop we are talking about.
+    :return:
+    """
     TCellInteractions[ID_T].append(ID_B)
     BCellInteractions[ID_B] = ID_T
     State[ID_T] = 'TC-CC Contact'
 
 
 def liberate_tcell(ID_B, ID_T):
+    """
+    Algorithm 7, Updating the T cells according to B cells interactions.
+    Updates records of whether cells are interacting, specifically removing cells from being interactive.
+    :param ID_B: integer, determines which B cell in the pop we are talking about.
+    :param ID_T: integer, determines which T cell in the pop we are talking about.
+    :return:
+    """
     TCellInteractions[ID_T].remove(ID_B)
     BCellInteractions[ID_B] = None
     if not TCellInteractions[ID_T]:
         State[ID_T] = 'TCNormal'
 
 
-# Algorithm 8 (Transition between Centroblasts, Centrocyctes, and Output Cells)
 def differ_to_out(ID):
+    """
+    Algorithm 8, Transition between Centroblasts, Centrocyctes, and Output Cells.
+    Transition a cell from Centroblast or Centrocycte to an Output Cell.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
+    # Update cell and Grid position properties.
     OutList.append(ID)
-    initiate_chemokine_receptors(ID, 'OutCell')
-    NumBCROutCells[Cell_BCR[ID]] += 1
+    Type[ID] = 'OutCell'
     Grid_Type[Position[ID]] = 'OutCell'
+    State[ID] = 'OutCell'
+    initiate_chemokine_receptors(ID)
+    NumBCROutCells[Cell_BCR[ID]] += 1
 
 
 def differ_to_cb(ID, t):
+    """
+    Algorithm 8, Transition between Centroblasts, Centrocyctes, and Output Cells.
+    Transitions a cell from Centrocyte to Centroblast.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :param t: float,  current time of the simulation.
+    :return:
+    """
     CBList.append(ID)
-    initiate_chemokine_receptors(ID, 'Centroblast')
+    Type[ID] = 'Centroblast'
+    initiate_chemokine_receptors(ID)
     Grid_Type[Position[ID]] = 'Centroblast'
 
+    # Find new probability of mutation.
     pMutation[ID] = p_mut(t) + (pMutAfterSelection - p_mut(t)) * affinity(ID) ** pMutAffinityExponent
     agFactor = numFDCContacts[ID] ** pMHCdepHill
     num_div = pMHCdepMin + (pMHCdepMax - pMHCdepMin) * agFactor / (agFactor + pMHCdepK ** pMHCdepHill)
@@ -355,8 +482,15 @@ def differ_to_cb(ID, t):
 
 
 def differ_to_cc(ID):
+    """
+    Algorithm 8, Transition between Centroblasts, Centrocyctes, and Output Cells.
+    Transitions a cell from Centroblast to Centrocyte.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return:
+    """
     CCList.append(ID)
-    initiate_chemokine_receptors(ID, 'Centrocyte')
+    Type[ID] = 'Centrocyte'
+    initiate_chemokine_receptors(ID)
     Grid_Type[Position[ID]] = 'Centrocyte'
     State[ID] = 'Unselected'
     if DeleteAgInFreshCC:
@@ -365,8 +499,12 @@ def differ_to_cc(ID):
         numFDCContacts[ID] = retainedAg[ID] + 0.5
 
 
-# Algorithm 9 (Initialisation)
 def initialise_cells():
+    """
+    Algorithm 9, Initialisation.
+    Starts the simulation by introducing various amounts of the possible cells into the simulation.
+    :return:
+    """
     # Initialise Stromal Cells:
     for _ in range(NumStromalCells):
         # Find empty location in dark zone
@@ -410,7 +548,7 @@ def initialise_cells():
         for i in range(1, DendriteLength + 1):
             for frag_pos in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
                 if (frag_pos[0] - (N / 2 + 0.5)) ** 2 + (frag_pos[1] - (N / 2 + 0.5)) ** 2 + (
-                    frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and Grid_ID[frag_pos] is None:
+                            frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and Grid_ID[frag_pos] is None:
                     ID = AvailableCellIDs.pop()
                     fragments.append(ID)
                     Position[ID] = pos
@@ -420,7 +558,7 @@ def initialise_cells():
             # When Z axis is increasing, we require an extra check to ensure that we're still in light zone.
             frag_pos = (x, y, z + i)
             if (frag_pos[0] - (N / 2 + 0.5)) ** 2 + (frag_pos[1] - (N / 2 + 0.5)) ** 2 + (
-                frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and frag_pos[2] <= N / 2 and Grid_ID[
+                        frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and frag_pos[2] <= N / 2 and Grid_ID[
                 frag_pos] is None:
                 ID = AvailableCellIDs.pop()
                 fragments.append(ID)
@@ -461,7 +599,7 @@ def initialise_cells():
         retainedAg[ID] = 0
 
         initiate_cycle(ID)
-        initiate_chemokine_receptors(ID, 'Centroblast')
+        initiate_chemokine_receptors(ID)
 
     # Initialise T Cells:
     for i in range(NumTC):
@@ -486,46 +624,61 @@ def initialise_cells():
         responsiveToSignalCXCL13[ID] = False
 
 
-# Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
+    """
+    Algorithm 10, Simulation of Germinal Center.
+    Main driver function for the simulation of a Germinal Center.
+    :return:
+    """
     t = 0.0
     while t <= tmax:
         print(t)
+        # Track the number of B cellsat each time step.
         NumBCells.append(len(CCList) + len(CBList))
         times.append(t)
 
+        # Secrete CXCL12 from Stromal Cells.
         for StromalCell in StormaList:
             signal_secretion(StromalCell, 'CXCL12', p_mkCXCL12)
 
+        # Randomly iterate over F cells / Fragments.
         random.shuffle(FDCList)
         for FCell in FDCList:
+            # Secrete CXCL13 from
             signal_secretion(FCell, 'CXCL13', p_mkCXCL13)
             fragments = Fragments[FCell]
+            # Update antigen amounts for each fragment.
             for frag in fragments:
                 for bcr_seq in BCR_values_all:
                     d_ic = dt * (
-                    k_on * FragmentAg[frag] * AntibodyPerBCR[bcr_seq] - antibodyDegradation * AntibodyPerBCR[bcr_seq])
+                        k_on * FragmentAg[frag] * AntibodyPerBCR[bcr_seq] - k_off(bcr_seq) * icAmount[frag])
                     FragmentAg[frag] -= d_ic
                     icAmount[frag] += d_ic
 
+        # Update the number of outcells and amount of antibody for each CR value.
         for bcr_seq in BCR_values_all:
             transfert = math.floor(NumBCROutCells[bcr_seq] * pmDifferentiationRate * dt)
             NumBCROutCells[bcr_seq] -= transfert
             NumBCROutCellsProduce[bcr_seq] += transfert
             AntibodyPerBCR[bcr_seq] = NumBCROutCellsProduce[bcr_seq] * abProdFactor - antibodyDegradation * \
                                                                                       AntibodyPerBCR[bcr_seq]
-
+        # Randomly iterate over Outcells
         random.shuffle(OutList)
         for ID in OutList:
+            # Move cell and remove if on surface of sphere / Germinal Center.
             move(ID)
             pos = Position[ID]
             if is_surface_point(pos):
                 OutList.remove(ID)
+                AvailableCellIDs.append(ID)
 
+        # Randomly iterate over Centroblast cells.
         random.shuffle(CBList)
         for ID in CBList:
+            # Progress cells in their lifetime cycle.
             update_chemokines_receptors(ID)
             progress_cycle(ID)
+            # Attempt to divide cell if ready.
             if State[ID] == 'cb_divide':
                 divide_and_mutate(ID, t)
             if State[ID] == 'cb_stop_diving':
@@ -534,20 +687,23 @@ def hyphasma():
                         differ_to_out(ID)
                     else:
                         differ_to_cc(ID)
-
+            # Move allowed cells.
             if State[ID] != 'cb_M':
                 move(ID)
-
+        # Randomly iterate over Centrocyte cells.
         random.shuffle(CCList)
         for ID in CCList:
+            #Update cells progress
             update_chemokines_receptors(ID)
             progress_fdc_selection(ID)
             progress_tcell_selection(ID, t)
+            # Remove cell from simulation if dead or move if not in contact with T or F cell.
             if State[ID] == 'Apoptosis':
                 CBList.remove(ID)
+                AvailableCellIDs.append(ID)
             elif State[ID] not in ['FDCContact', 'TCContact']:
                 move(ID)
-
+        # Randomly iterate over T cells and move if not attached to another cell.
         random.shuffle(TCList)
         for ID in TCList:
             if State[ID] == 'TCNormal':
@@ -561,52 +717,65 @@ def hyphasma():
 
 # Extra Algorithms/Functions
 def generate_spatial_points(n):
-    '''Obtains a list of all points in the sphere/GC
-    Input: Number of discrete diamter points, n.
-    Output: List containing all points within sphere.'''
-
+    """
+    Calculates and finds the allowed positions (x,y,z) of the Germinal Center. Places them such that x, y, z in [0,n].
+    :param n: interger, the number of discrete points across the diameter of the Germinal Center.
+    :return: list of tuples, positions of all allowed points in the Germinal Center.
+    """
     return [(x + n / 2 + 1, y + n / 2 + 1, z + n / 2 + 1) for x in range(-n / 2, n / 2) for y in range(-n / 2, n / 2)
             for z in range(-n / 2, n / 2) if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (n / 2) ** 2]
 
 
 def affinity(ID):
+    """
+    Calculates the affinity between the Antigen and a given cells BCR.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return: float, affinity value.
+    """
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(Cell_BCR[ID]), str(Antigen_Value)))
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
 
 def k_off(bcr):
+    """
+    Calulates k_off
+    :param bcr: BCR value that has been exhibited throughout simulation.
+    :return: float, value of k_off
+    """
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(Antigen_Value)))
     return k_on / (10 ** (expMin + math.exp(-(hamming_dist / 2.8) ** 2) * (expMax - expMin)))
 
 
-def p_mut(time):
-    '''Finds the probability of mutation
-    Input: Current time, t
-    Output: Probability of Mutation'''
-
-    if time > 24:
+def p_mut(t):
+    """
+    Finds the probability that a cell will mutate without extra influences.
+    :param t: float, current time of the simulation.
+    :return: float, probability of mutation.
+    """
+    if t > 24:
         return 0.5
     else:
-        return 0
+        return 0.0
 
 
-def get_duration(cell_state):
-    '''Finds duration before cell divides using Guassian random variable.
-    Input: current state of cell, cell_state
-    Output: amount of time
-    '''
+def get_duration(ID):
+    """
+    Find duration of time before a cell divides. Amount of time determined using Guassian Random Variable.
+    :param ID: integer, determines which cell in the pop we are talking about.
+    :return: float, sample from a Guassian random variable representing time till a cell divides.
+    """
     sigma = 1
-    if cell_state == 'cb_G1':
+    if State[ID] == 'cb_G1':
         mu = 2.0
-    elif cell_state == 'cb_S':
+    elif State[ID] == 'cb_S':
         mu = 1.0
-    elif cell_state == 'cb_G2':
+    elif State[ID] == 'cb_G2':
         mu = 2.5
-    elif cell_state == 'cb_M':
+    elif State[ID] == 'cb_M':
         mu = 0.5
     else:
         mu = None
-        print("getDuration: Invalid cell state, {}".format(cell_state))
+        print("getDuration: Invalid cell state, {}".format(State[ID]))
 
     return random.gauss(mu, sigma)
 
@@ -620,13 +789,20 @@ def diffuse_signal():
 
 
 def is_surface_point(position):
+    """
+    Determines if a position in the Germinal Center is on the surface. If the neighbour of a position in the Germinal
+    Center is outside the simulation domain, we consider that position to be on the surface.
+    :param position: 3-tuple, the x,y,z position of a cell.
+    :return surface: boolean, Boolean response for whether the given point is within the Germinal Center.
+    """
     pos = np.array(position)
     surface = False
+    # Test the main neighbouring points to determine if they are inside the Germinal Center
     for movement in [np.array([1, 0, 0]), np.array([-1, 0, 0]), np.array([0, 1, 0]), np.array([0, -1, 0]),
                      np.array([0, 0, 1]), np.array([0, 0, -1])]:
         neighbour_pos = pos + movement
         if (neighbour_pos[0] - (N / 2 + 0.5)) ** 2 + (neighbour_pos[1] - (N / 2 + 0.5)) ** 2 + (
-            neighbour_pos[2] - (N / 2 + 0.5)) ** 2 > (N / 2) ** 2:
+                    neighbour_pos[2] - (N / 2 + 0.5)) ** 2 > (N / 2) ** 2:
             surface = True
     return surface
 
@@ -669,7 +845,7 @@ TCList = []
 OutList = []
 
 # Possible initial BCR values
-BCR_values_initial = random.sample(range(1000, 10000), 8999)
+BCR_values_initial = random.sample(range(1000, 10000), 1000)
 BCR_values_all = set(BCR_values_initial)
 NumBCROutCells = {bcr: 0 for bcr in BCR_values_initial}
 NumBCROutCellsProduce = {bcr: 0 for bcr in BCR_values_initial}
@@ -808,6 +984,14 @@ if __name__ == "__main__":
     hyphasma()
     plt.plot(times, NumBCells)
     plt.show()
+
+
+
+
+
+
+
+
 
 
 
