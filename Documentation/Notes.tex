@@ -29,13 +29,10 @@ In this section, we highlight the assumptions made in the model we are following
 
 
 \section{Implementation Ideas}
-Assign each cell an ID from 0 to $m(=\text{number of cells})$. Can then find each property by using ID as index for a list. >Using dictionaries instead
 
 Generate $N\times N\times N$ spatial grid to place discrete sphere with radius $N/2$ within. Find and store the valid spatial points within this grid. At each time step, record where the discrete grid spot is free or contains a cell. Use dictionary, return None if empty, otherwise cell ID? If we want to find the position of a cell, we would need to work the dictionary backwards, likely to be computationally slow. Could have two dictionaries - one that gives position from cell ID and another that gives Cell ID / None from position. Is this likely to cause update issues?
 
 The model given assigns cells an ID based on their position of each cell in its respective type list. This would allow for multiple cells to have the same ID and would require ID and type to be uniquely identified. Rather give each cell a unique ID regardless of type so always identifiable from ID alone. 
-
-Total number of initial cells can be calculated using totals for all types of cells. Use this to generate empty lists for each cell's parameters to be inserted into. 
 
 Don't need to have dictionary storing whether a point is within the sphere, can just re-apply the same calculation used to find original sphere co-ordinates. 
 
@@ -48,6 +45,8 @@ Algorithm 4, progress\_cycle has been implemented poorly. Instead of having a lo
 The following was followed to generate random unit vectors for initial polarity: https://codereview.stackexchange.com/questions/77927/generate-random-unit-vectors-around-circle
 
 The germinal center has a maximum size. We generate ID values from 0 to the maximum number of cells in the germinal center and store/track them in a list. We assign each new cell an ID number (from the end of the list, using pop() to ensure O(1) operation) and when a cell dies, we append its ID value back into the list. In a numpy array of fixed size, we will store the properties of each cell as a named tuple. To access the correct properties, the associated ID to a cell will be used as the index in the numpy array. Unassigned IDs will contain None values in numpy array and when a cell gets removed from the simulation, the numpy array index is converted back to being a None value. 
+
+In main function, we have to iterate over lists randomly and occasionally remove elements from this list, can do so using enumerate function to track indices of what needs to be removed. 	
 
 
 
