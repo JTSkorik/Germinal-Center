@@ -4,9 +4,11 @@ import math
 import numpy as np
 import itertools
 import matplotlib.pyplot as plt
-#TODO CXCL12 and CXCL13 made up values.
-#TODO documentation and comments
-#TODO signal_secretion, diffusion, and turn_angle functions.
+
+
+# TODO CXCL12 and CXCL13 made up values.
+# TODO documentation and comments
+# TODO signal_secretion, diffusion, and turn_angle functions.
 
 
 # Algorithm 1 (Mutation)
@@ -93,7 +95,6 @@ def move(ID):
         phi = random.uniform(0, 2 * math.pi)
         Polarity[ID] = turn_angle(Polarity[ID], theta, phi)
 
-
         if responsiveToSignalCXCL12[ID]:
             x_diff = Grid_CXCL12[(x + 1, y, z)] - Grid_CXCL12[(x - 1, y, z)]
             y_diff = Grid_CXCL12[(x, y + 1, z)] - Grid_CXCL12[(x, y - 1, z)]
@@ -129,7 +130,8 @@ def move(ID):
     if random.uniform(0, 1) < pDifu:
         WantedPosition = np.asarray(pos) + Polarity[ID]
         Neighbours = [np.asarray(Movement) + np.asarray(pos) for Movement in
-                      Possible_Movements if np.linalg.norm(np.asarray(Movement) + np.asarray(pos) - np.array([N/2 + 0.5, N/2 + 0.5, N/2 + 0.5])) <= (N/2)]
+                      Possible_Movements if np.linalg.norm(
+                np.asarray(Movement) + np.asarray(pos) - np.array([N / 2 + 0.5, N / 2 + 0.5, N / 2 + 0.5])) <= (N / 2)]
         Neighbours.sort(key=lambda x: np.linalg.norm(x - WantedPosition))
         count = 0
         moved = False
@@ -178,8 +180,7 @@ def progress_cycle(ID):
             cycleStartTime[ID] = 0
 
 
-def divide_and_mutate(ID):
-    global cell_ID
+def divide_and_mutate(ID, t):
     pos = Position[ID]
     if random.uniform(0, 1) < pNow:
         empty_neighbours = []
@@ -190,8 +191,7 @@ def divide_and_mutate(ID):
         if empty_neighbours:
             divide_pos = random.choice(empty_neighbours)
 
-            newID = cell_ID
-            cell_ID += 1
+            newID = AvailableCellIDs.pop()
 
             Position[newID] = divide_pos
             Type[newID] = Type[ID]
@@ -278,7 +278,7 @@ def progress_fdc_selection(ID):
 
 
 # Algorithm 6 (Screening for T cell help at the Centrocyte Stage)
-def progress_tcell_selection(ID):
+def progress_tcell_selection(ID, t):
     if State[ID] == 'FDCSelected':
         pos = Position[ID]
         for neighbour in Possible_Movements:
@@ -314,7 +314,7 @@ def progress_tcell_selection(ID):
                 if random.uniform(0, 1) < pDifToOut:
                     differ_to_cc(ID)
                 else:
-                    differ_to_cb(ID)
+                    differ_to_cb(ID, t)
 
 
 # Algorithm 7 (Updating the T cells according to B cells Interactions)
@@ -339,7 +339,7 @@ def differ_to_out(ID):
     Grid_Type[Position[ID]] = 'OutCell'
 
 
-def differ_to_cb(ID):
+def differ_to_cb(ID, t):
     CBList.append(ID)
     initiate_chemokine_receptors(ID, 'Centroblast')
     Grid_Type[Position[ID]] = 'Centroblast'
@@ -367,8 +367,6 @@ def differ_to_cc(ID):
 
 # Algorithm 9 (Initialisation)
 def initialise_cells():
-    global cell_ID
-
     # Initialise Stromal Cells:
     for _ in range(NumStromalCells):
         # Find empty location in dark zone
@@ -377,14 +375,13 @@ def initialise_cells():
             pos = random.choice(DarkZone)
 
         # Obtain new ID for new cell
-        newID = cell_ID
-        cell_ID += 1
+        ID = AvailableCellIDs.pop()
 
         # Add to appropriate lists and dictionaries
-        StormaList.append(newID)
-        Type[newID] = 'Stromal'
-        Position[newID] = pos
-        Grid_ID[pos] = newID
+        StormaList.append(ID)
+        Type[ID] = 'Stromal'
+        Position[ID] = pos
+        Grid_ID[pos] = ID
         Grid_Type[pos] = 'Stromal'
 
     # Initialise Fragments:
@@ -395,40 +392,40 @@ def initialise_cells():
             pos = random.choice(LightZone)
 
         # Obtain new ID for new cell
-        newID = cell_ID
-        cell_ID += 1
+        ID = AvailableCellIDs.pop()
 
         # Add to appropriate lists and dictonaries
-        FDCList.append(newID)
-        Type[newID] = 'FCell'
-        Position[newID] = pos
-        Grid_ID[pos] = newID
+        FDCList.append(ID)
+        Type[ID] = 'FCell'
+        Position[ID] = pos
+        Grid_ID[pos] = ID
         Grid_Type[pos] = 'FCell'
 
         # Find the fragments for the FCell
-        FCell_ID = newID
+        FCell_ID = ID
         fragments = []
         x = pos[0]
         y = pos[1]
         z = pos[2]
         for i in range(1, DendriteLength + 1):
             for frag_pos in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
-                if (frag_pos[0] - (N/2 + 0.5)) ** 2 + (frag_pos[1] - (N/2 + 0.5)) ** 2 + (frag_pos[2] - (N/2 + 0.5)) ** 2 <= (N/2) ** 2 and Grid_ID[frag_pos] is None:
-                    newID = cell_ID
-                    cell_ID += 1
-                    fragments.append(newID)
-                    Position[newID] = pos
-                    Grid_ID[frag_pos] = newID
+                if (frag_pos[0] - (N / 2 + 0.5)) ** 2 + (frag_pos[1] - (N / 2 + 0.5)) ** 2 + (
+                    frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and Grid_ID[frag_pos] is None:
+                    ID = AvailableCellIDs.pop()
+                    fragments.append(ID)
+                    Position[ID] = pos
+                    Grid_ID[frag_pos] = ID
                     Grid_Type[frag_pos] = 'Fragment'
 
             # When Z axis is increasing, we require an extra check to ensure that we're still in light zone.
             frag_pos = (x, y, z + i)
-            if (frag_pos[0] - (N/2 + 0.5)) ** 2 + (frag_pos[1] - (N/2 + 0.5)) ** 2 + (frag_pos[2] - (N/2 + 0.5)) ** 2 <= (N/2) ** 2 and frag_pos[2] <= N/2 and Grid_ID[frag_pos] is None:
-                newID = cell_ID
-                cell_ID += 1
-                fragments.append(newID)
-                Position[newID] = pos
-                Grid_ID[frag_pos] = newID
+            if (frag_pos[0] - (N / 2 + 0.5)) ** 2 + (frag_pos[1] - (N / 2 + 0.5)) ** 2 + (
+                frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and frag_pos[2] <= N / 2 and Grid_ID[
+                frag_pos] is None:
+                ID = AvailableCellIDs.pop()
+                fragments.append(ID)
+                Position[ID] = pos
+                Grid_ID[frag_pos] = ID
                 Grid_Type[frag_pos] = 'Fragment'
 
         Fragments[FCell_ID] = fragments
@@ -447,25 +444,24 @@ def initialise_cells():
             pos = random.choice(LightZone)
 
         # Obtain new ID for new cell
-        newID = cell_ID
-        cell_ID += 1
+        ID = AvailableCellIDs.pop()
 
         # Add cell to appropriate lists and dictionaries
-        CBList.append(newID)
-        Type[newID] = 'Centroblast'
-        Cell_BCR[newID] = random.choice(tuple(BCR_values_all))
-        Position[newID] = pos
-        pMutation[newID] = p_mut(t)
-        numDivisionsToDo[newID] = numDivFounderCells
-        Grid_ID[pos] = newID
+        CBList.append(ID)
+        Type[ID] = 'Centroblast'
+        Cell_BCR[ID] = random.choice(tuple(BCR_values_all))
+        Position[ID] = pos
+        pMutation[ID] = p_mut(0.0)
+        numDivisionsToDo[ID] = numDivFounderCells
+        Grid_ID[pos] = ID
         Grid_Type[pos] = 'Centroblast'
         v = np.random.standard_normal(3)
-        Polarity[newID] = v / np.linalg.norm(v)
-        IAmHighAg[newID] = False
-        retainedAg[newID] = 0
+        Polarity[ID] = v / np.linalg.norm(v)
+        IAmHighAg[ID] = False
+        retainedAg[ID] = 0
 
-        initiate_cycle(newID)
-        initiate_chemokine_receptors(newID, 'Centroblast')
+        initiate_cycle(ID)
+        initiate_chemokine_receptors(ID, 'Centroblast')
 
     # Initialise T Cells:
     for i in range(NumTC):
@@ -474,26 +470,25 @@ def initialise_cells():
             pos = random.choice(LightZone)
 
         # Obtain new ID for new cell.
-        newID = cell_ID
-        cell_ID += 1
+        ID = AvailableCellIDs.pop()
 
         # Add cell to appropriate lists and dictionaries
-        TCList.append(newID)
-        Type[newID] = 'TCell'
-        Position[newID] = pos
-        Grid_ID[pos] = newID
+        TCList.append(ID)
+        Type[ID] = 'TCell'
+        Position[ID] = pos
+        Grid_ID[pos] = ID
         Grid_Type[pos] = 'TCell'
         v = np.random.standard_normal(3)
-        Polarity[newID] = v / np.linalg.norm(v)
-        TCellInteractions[newID] = []
-        State[newID] = 'TCNormal'
-        responsiveToSignalCXCL12[newID] = False
-        responsiveToSignalCXCL13[newID] = False
+        Polarity[ID] = v / np.linalg.norm(v)
+        TCellInteractions[ID] = []
+        State[ID] = 'TCNormal'
+        responsiveToSignalCXCL12[ID] = False
+        responsiveToSignalCXCL13[ID] = False
+
 
 # Algorithm 10 (Hyphasma: Simulation of Germinal Center)
 def hyphasma():
-    global t
-    global cell_ID
+    t = 0.0
     while t <= tmax:
         print(t)
         NumBCells.append(len(CCList) + len(CBList))
@@ -508,7 +503,8 @@ def hyphasma():
             fragments = Fragments[FCell]
             for frag in fragments:
                 for bcr_seq in BCR_values_all:
-                    d_ic = dt * (k_on * FragmentAg[frag] * AntibodyPerBCR[bcr_seq] - antibodyDegradation * AntibodyPerBCR[bcr_seq])
+                    d_ic = dt * (
+                    k_on * FragmentAg[frag] * AntibodyPerBCR[bcr_seq] - antibodyDegradation * AntibodyPerBCR[bcr_seq])
                     FragmentAg[frag] -= d_ic
                     icAmount[frag] += d_ic
 
@@ -531,7 +527,7 @@ def hyphasma():
             update_chemokines_receptors(ID)
             progress_cycle(ID)
             if State[ID] == 'cb_divide':
-                divide_and_mutate(ID)
+                divide_and_mutate(ID, t)
             if State[ID] == 'cb_stop_diving':
                 if random.uniform(0, 1) < pDif:
                     if IAmHighAg[ID]:
@@ -546,7 +542,7 @@ def hyphasma():
         for ID in CCList:
             update_chemokines_receptors(ID)
             progress_fdc_selection(ID)
-            progress_tcell_selection(ID)
+            progress_tcell_selection(ID, t)
             if State[ID] == 'Apoptosis':
                 CBList.remove(ID)
             elif State[ID] not in ['FDCContact', 'TCContact']:
@@ -577,9 +573,10 @@ def affinity(ID):
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(Cell_BCR[ID]), str(Antigen_Value)))
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
+
 def k_off(bcr):
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(Antigen_Value)))
-    return k_on / (10 ** (expMin + math.exp(-(hamming_dist / 2.8) ** 2) * (expMax - expMin)) )
+    return k_on / (10 ** (expMin + math.exp(-(hamming_dist / 2.8) ** 2) * (expMax - expMin)))
 
 
 def p_mut(time):
@@ -625,11 +622,14 @@ def diffuse_signal():
 def is_surface_point(position):
     pos = np.array(position)
     surface = False
-    for movement in [np.array([1,0,0]), np.array([-1,0,0]), np.array([0,1,0]), np.array([0,-1,0]), np.array([0,0,1]), np.array([0,0,-1])]:
+    for movement in [np.array([1, 0, 0]), np.array([-1, 0, 0]), np.array([0, 1, 0]), np.array([0, -1, 0]),
+                     np.array([0, 0, 1]), np.array([0, 0, -1])]:
         neighbour_pos = pos + movement
-        if (neighbour_pos[0] - (N/2 + 0.5))** 2 + (neighbour_pos[1] - (N/2 + 0.5))** 2 + (neighbour_pos[2] - (N/2 + 0.5))** 2 > (N/2) ** 2:
+        if (neighbour_pos[0] - (N / 2 + 0.5)) ** 2 + (neighbour_pos[1] - (N / 2 + 0.5)) ** 2 + (
+            neighbour_pos[2] - (N / 2 + 0.5)) ** 2 > (N / 2) ** 2:
             surface = True
     return surface
+
 
 # Set-up for simulation:
 Antigen_Value = 1234
@@ -640,13 +640,16 @@ AllPoints = generate_spatial_points(N)
 DarkZone = [point for point in AllPoints if point[2] > N / 2]
 LightZone = [point for point in AllPoints if point[2] <= N / 2]
 
+# Available Cell IDs:
+AvailableCellIDs = list(range(len(AllPoints)))
+
+# Spatial step size (micrometers)
 dx = 5
 
 # Time Variables:
 dt = 0.002
 tmin = 0.0
 tmax = 3.0
-t = 0.0  # Current time
 
 # Initialisation
 NumStromalCells = 30
@@ -704,17 +707,18 @@ Grid_ID = {pos: None for pos in AllPoints}
 Grid_Type = {pos: None for pos in AllPoints}
 
 # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
-Grid_CXCL12 = {pos: random.uniform(80e-11, 80e-10) for pos in [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in range(-N / 2, N / 2)
-            for z in range(-N / 2, N / 2)]}
-Grid_CXCL13 = {pos: random.uniform(0.1e-10, 0.1e-9) for pos in [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in range(-N / 2,  N / 2)
-            for z in range(-N / 2, N / 2)]}
+Grid_CXCL12 = {pos: random.uniform(80e-11, 80e-10) for pos in
+               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in
+                range(-N / 2, N / 2)
+                for z in range(-N / 2, N / 2)]}
+Grid_CXCL13 = {pos: random.uniform(0.1e-10, 0.1e-9) for pos in
+               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in
+                range(-N / 2, N / 2)
+                for z in range(-N / 2, N / 2)]}
 
 # B cells interacting with T cells:
 TCellInteractions = {}
 BCellInteractions = {}
-
-# Sequence variable for giving each cell an ID:
-cell_ID = 0
 
 # Dynamic number of divisions:
 numDivFounderCells = 12
@@ -727,7 +731,6 @@ pMHCdepK = 6.0
 p_mkCXCL12 = 4e-7
 p_mkCXCL13 = 1e-8
 CXCL13_DiffRate = 1000 * 25 * 0.002
-
 
 # Persistent Length time
 pLTCentrocyte = 0.025
@@ -767,10 +770,8 @@ start_differentiation = 72.0
 pDif = dt * 0.1
 DeleteAgInFreshCC = True
 dif_delay = 6.0
-pDifToOut_Target = 0.0  # LEDA Case
-smooth_differentiation_time = 12.0  # From width variable
-weight = 1 + math.exp((72.0 - t) / smooth_differentiation_time)
-pDifToOut = pDifToOut_Target / weight
+
+pDifToOut = 0.0
 
 # Selection Steps
 testDelay = 0.02
@@ -798,7 +799,7 @@ Possible_Movements.remove((0, 0, 0))
 
 # For plots/tests:
 NumBCells = []
-times = [t]
+times = [0.0]
 
 # Run Simulation:
 if __name__ == "__main__":
