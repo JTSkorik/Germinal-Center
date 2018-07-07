@@ -169,7 +169,7 @@ def move(ID):
         Neighbours = [np.asarray(Movement) + np.asarray(pos) for Movement in
                       Possible_Movements if np.linalg.norm(
                 np.asarray(Movement) + np.asarray(pos) - np.array(OffSet)) <= (N / 2)]
-        Neighbours.sort(key=lambda x: np.linalg.norm(x - WantedPosition))
+        Neighbours.sort(key=lambda w: np.linalg.norm(w - WantedPosition))
 
         # Move the cell to best available position that isn't against direction of polarity
         count = 0
@@ -254,7 +254,7 @@ def divide_and_mutate(ID, t):
         pos = Position[ID]
         empty_neighbours = [tuple(np.array(pos) + np.array(possible_neighbour)) for possible_neighbour in
                             Possible_Movements if np.linalg.norm(
-                            np.asarray(possible_neighbour) + np.asarray(pos) - np.array(OffSet)) <= (N / 2)]
+                np.asarray(possible_neighbour) + np.asarray(pos) - np.array(OffSet)) <= (N / 2)]
 
         # Randomly choose one position for new cell
         if empty_neighbours:
@@ -552,7 +552,7 @@ def initialise_cells():
             # When Z axis is increasing, we require an extra check to ensure that we're still in light zone.
             frag_pos = (x, y, z + i)
             if (frag_pos[0] - (N / 2 + 0.5)) ** 2 + (frag_pos[1] - (N / 2 + 0.5)) ** 2 + (
-                        frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and frag_pos[2] <= N / 2 and Grid_ID[
+                        frag_pos[2] - (N / 2 + 0.5)) ** 2 <= (N / 2) ** 2 and frag_pos[2] <= N // 2 and Grid_ID[
                 frag_pos] is None:
                 ID = AvailableCellIDs.pop()
                 fragments.append(ID)
@@ -563,8 +563,8 @@ def initialise_cells():
         Fragments[FCell_ID] = fragments
 
         # Assign each fragment an amount of antigen
-        FCellVol[FCell_ID] = len(fragments) + 1  # +1 accounts for centre
-        agPerFrag = AntigenAmountPerFDC / FCellVol[FCell_ID]
+        FCellVol = len(fragments) + 1  # +1 accounts for centre
+        agPerFrag = AntigenAmountPerFDC / FCellVol
         for Frag in [FCell_ID] + Fragments[FCell_ID]:
             FragmentAg[Frag] = agPerFrag
             icAmount[Frag] = 0
@@ -716,8 +716,9 @@ def generate_spatial_points(n):
     :param n: interger, the number of discrete points across the diameter of the Germinal Center.
     :return: list of tuples, positions of all allowed points in the Germinal Center.
     """
-    return [(x + n / 2 + 1, y + n / 2 + 1, z + n / 2 + 1) for x in range(-n / 2, n / 2) for y in range(-n / 2, n / 2)
-            for z in range(-n / 2, n / 2) if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (n / 2) ** 2]
+    return [(x + n // 2 + 1, y + n // 2 + 1, z + n // 2 + 1) for x in range(-n // 2, n // 2) for y in
+            range(-n // 2, n // 2)
+            for z in range(-n // 2, n // 2) if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (n // 2) ** 2]
 
 
 def affinity(ID):
@@ -807,8 +808,8 @@ Antigen_Value = 1234
 # Distance Variables:
 N = 16  # Diameter of sphere/GC
 AllPoints = generate_spatial_points(N)
-DarkZone = [point for point in AllPoints if point[2] > N / 2]
-LightZone = [point for point in AllPoints if point[2] <= N / 2]
+DarkZone = [point for point in AllPoints if point[2] > N // 2]
+LightZone = [point for point in AllPoints if point[2] <= N // 2]
 OffSet = (N / 2 + 0.5, N / 2 + 0.5, N / 2 + 0.5)
 
 # Available Cell IDs:
@@ -859,7 +860,6 @@ responsiveToSignalCXCL12 = {}
 responsiveToSignalCXCL13 = {}
 Fragments = {}
 FragmentAg = {}
-FCellVol = {}
 numFDCContacts = {}
 Polarity = {}
 IAmHighAg = {}
@@ -879,13 +879,13 @@ Grid_Type = {pos: None for pos in AllPoints}
 
 # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
 Grid_CXCL12 = {pos: random.uniform(80e-11, 80e-10) for pos in
-               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in
-                range(-N / 2, N / 2)
-                for z in range(-N / 2, N / 2)]}
+               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N // 2, N // 2) for y in
+                range(-N // 2, N // 2)
+                for z in range(-N // 2, N // 2)]}
 Grid_CXCL13 = {pos: random.uniform(0.1e-10, 0.1e-9) for pos in
-               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N / 2, N / 2) for y in
-                range(-N / 2, N / 2)
-                for z in range(-N / 2, N / 2)]}
+               [(x + N / 2 + 1, y + N / 2 + 1, z + N / 2 + 1) for x in range(-N // 2, N // 2) for y in
+                range(-N // 2, N // 2)
+                for z in range(-N // 2, N // 2)]}
 
 # B cells interacting with T cells:
 TCellInteractions = {}
@@ -972,6 +972,7 @@ Possible_Movements.remove((0, 0, 0))
 NumBCells = []
 times = [0.0]
 
+
 # Enumerations to replace string comparisons:
 
 class CellType(Enum):
@@ -982,6 +983,7 @@ class CellType(Enum):
     Centroblast = 5
     Centrocyte = 6
     OutCell = 7
+
 
 class CellState(Enum):
     # T cells
@@ -1008,8 +1010,10 @@ class CellState(Enum):
     # Outcell
     OutCell = 25
 
+
 # Run Simulation:
 if __name__ == "__main__":
+    print('test')
     initialise_cells()
     NumBCells.append(len(CCList) + len(CBList))
     hyphasma()
