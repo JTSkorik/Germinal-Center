@@ -5,7 +5,10 @@
 \usepackage{geometry}
 \usepackage{hyperref}
 \usepackage{amstext}
+\usepackage{array}
+\usepackage{tabularx}
 
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
 \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
 
 \begin{document}
@@ -44,68 +47,251 @@ Algorithm 4, progress\_cycle has been implemented poorly. Instead of having a lo
 
 The following was followed to generate random unit vectors for initial polarity: https://codereview.stackexchange.com/questions/77927/generate-random-unit-vectors-around-circle
 
-The germinal center has a maximum size. We generate ID values from 0 to the maximum number of cells in the germinal center and store/track them in a list. We assign each new cell an ID number (from the end of the list, using pop() to ensure O(1) operation) and when a cell dies, we append its ID value back into the list. In a numpy array of fixed size, we will store the properties of each cell as a named tuple. To access the correct properties, the associated ID to a cell will be used as the index in the numpy array. Unassigned IDs will contain None values in numpy array and when a cell gets removed from the simulation, the numpy array index is converted back to being a None value. 
+The germinal center has a maximum size. We generate ID values from 0 to the maximum number of cells in the germinal center and store/track them in a list. We assign each new cell an ID number (from the end of the list, using pop() to ensure O(1) operation) and when a cell dies, we append its ID value back into the list. In a numpy array of fixed size, we will store the properties of each cell as a named tuple (Not using named tuples since we can not charge their properties, instead, we will use types.SimpleNamespace). To access the correct properties, the associated ID to a cell will be used as the index in the numpy array (Now using lists since numpy arrays can't store SimpleNamespace variables). Unassigned IDs will contain None values in numpy array (list) and when a cell gets removed from the simulation, the numpy array (list) index is converted back to being a None value. 
 
-In main function, we have to iterate over lists randomly and occasionally remove elements from this list, can do so using enumerate function to track indices of what needs to be removed. 	
+In main function, we have to iterate over lists randomly and occasionally remove elements from this list, can do so using enumerate function to track indices of what needs to be removed. 
 
 
 
-\section{Algorithms.}
+\section{Parameters for each Cell}
 
-\subsection{Parameters for each Cell}
-This table is heavily outdated. Will be updated to talk about the types of cells and their properties. 
+\subsection{Stromal cell}
 \begin{center}
-
-\begin{tabular}{|c|c|c|c|}
-\hline 
-Property & Domain & Storage & Description?\tabularnewline
-\hline 
-\hline 
-Assigned ID & Integer starting at Zero & List? & \tabularnewline
-\hline 
-Location & $(x,y,z)$ co-ordinates & List & \tabularnewline
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
 \hline
-Type/Agent & String & List & \tabularnewline
-\hline 
-State & String & List & \tabularnewline
-\hline 
-BCR & 4-digit integer & List & \tabularnewline
-\hline 
-pMutation & Float [0,1] & List & \tabularnewline
-\hline 
-responsiveToSignal{[}CXCL12{]} & Boolean & List & \tabularnewline
-\hline 
-responsiveToSignal{[}CXCL13{]} & Boolean & List & \tabularnewline
-\hline 
-Polarity & $(\hat{i},\hat{j},\hat{k})$ 3D Vector  & List & \tabularnewline
-\hline 
-cycleStateTime & Float & List & \tabularnewline
-\hline 
-endOfThisPhase & Float & List & \tabularnewline
-\hline 
-numDivisionsToDo & Integer & List & \tabularnewline
-\hline 
-IAmHighAg & Boolean & List & \tabularnewline
-\hline 
-retainedAg & Float & List & \tabularnewline
-\hline 
-numFDCContacts & Integer & List & \tabularnewline
-\hline 
-selectedClock & Float? & List & \tabularnewline
-\hline 
-Selectable & Boolean & List & \tabularnewline
-\hline 
-Clock & Float & List & \tabularnewline
-\hline 
-tcClock & Float & List & \tabularnewline
-\hline 
-tcSignalDuration & Float & List & \tabularnewline
-\hline 
-individualDifDelay & Float & List & \tabularnewline
-\hline 
-\end{tabular}
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
 
+\end{tabular}
 \end{center}
+
+\subsection{F-Cell}
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+antigenAmount & Float & Amount of Antigen Retained by the Fragment. 
+\tabularnewline
+\hline
+icAmount & Float &
+\tabularnewline
+\hline
+Fragments & List of IDs(int) & List of IDs for each fragment of given F-cell. 
+\tabularnewline
+\hline
+
+\end{tabular}
+\end{center}
+
+\subsection{Fragment}
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+antigenAmount & Float & Amount of Antigen Retained by the Fragment. 
+\tabularnewline
+\hline
+icAmount & Float &
+\tabularnewline
+\hline 
+Parent & Integer & ID for center of F cell.  
+\tabularnewline
+\hline
+
+\end{tabular}
+\end{center}
+
+\subsection{Centroblast}
+
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+State & Enumeration & Current state of the cell. 
+\tabularnewline
+\hline
+BCR & 4 Digit integer & BCR value for cell.
+\tabularnewline
+\hline
+Polarity & 3D Numpy Array / Vector & Polarity of cell.
+\tabularnewline
+\hline
+responsiveToCXCL12 & Boolean & Records whether cell is responsive to signal CXCL12.
+\tabularnewline
+\hline
+responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL13.
+\tabularnewline
+\hline
+numDivisionsToDo & Integer & The number of divisions the cell is yet to do. 
+\tabularnewline
+\hline 
+pMutation & Float & Probability of the cell mutating. 
+\tabularnewline
+\hline
+IAmHighAg & Boolean & 
+\tabularnewline
+\hline
+retainedAg & Float & Amount of antigen retained by the cell. 
+\tabularnewline
+\hline
+cycleStartTime & Float & Amount of time spent in current state. 
+\tabularnewline
+\hline
+endOfThisPhase & Float & Time at which the cell will finish being in this state. 
+\tabularnewline
+\hline
+
+\end{tabular}
+\end{center}
+
+
+\subsection{Centrocyte}
+
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+State & Enumeration & Current state of the cell. 
+\tabularnewline
+\hline
+BCR & 4 Digit integer & BCR value for cell.
+\tabularnewline
+\hline
+Polarity & 3D Numpy Array / Vector & Polarity of cell.
+\tabularnewline
+\hline
+responsiveToCXCL12 & Boolean & Records whether cell is responsive to signal CXCL12.
+\tabularnewline
+\hline
+responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL13.
+\tabularnewline
+\hline
+selectedClock & Float &
+\tabularnewline
+\hline
+Clock & Float &
+\tabularnewline
+\hline
+selectable & Boolean &
+\tabularnewline
+\hline
+FragContact & None or Integer & 
+\tabularnewline
+\hline
+numFDCcontacts & Integer &
+\tabularnewline
+\hline
+tcClock & Float &
+\tabularnewline
+\hline
+tcSignalDuration & Float &
+\tabularnewline
+\hline
+individualDifDelay & Float &
+\tabularnewline
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{T cell}
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+State & Enumeration & Current state of the cell.
+\tabularnewline
+\hline
+Polarity & 3D Numpy Array / Vector & Polarity of cell.
+\tabularnewline
+\hline
+
+\end{tabular}
+\end{center}
+
+\subsection{Outcell}
+\begin{center}
+\begin{tabular}{|C{2.1in}|C{2.1in}|C{2.1in}|}
+\hline
+\textbf{Property} & \textbf{Data Type} & \textbf{Description}
+\tabularnewline
+\hline
+\hline
+Type & Enumeration & The type of cell. 
+\tabularnewline
+\hline
+Position & Tuple & Position within GC.
+\tabularnewline
+\hline
+Polarity & 3D Numpy Array / Vector & Polarity of cell.
+\tabularnewline
+\hline
+responsiveToCXCL12 & Boolean & Records whether cell is responsive to signal CXCL12.
+\tabularnewline
+\hline
+responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL13.
+\tabularnewline
+\hline
+
+\end{tabular}
+\end{center}
+
 
 \subsection{General Parameters \& Tracked Lists}
 \begin{itemize}
@@ -118,211 +304,6 @@ individualDifDelay & Float & List & \tabularnewline
 
 \end{itemize}
 
-\subsection{Algorithm 1 (Mutation)}	
-
-\textbf{Function}: mutate() 
-
-\textbf{Notes}: I believe all cells have an affinity? Need to examine reference 13 to determine what is meant by 
-
-+/-1, do we do both or randomly choose from possibilities? 
-
-
-\textbf{Input}: Cell, C; Probability of Mutation, pMutation.
-
-\textbf{Accesses}: BCR.
-
-\textbf{Alterations}: BCR.
-
-
-\subsection{Algorithm 2 (Dynamic Updating of Chemotaxis)}
-\textbf{Function}: initiateChemokineReceptors() 
-
-\textbf{Notes}: 
-
-\textbf{Input}: Cell, C (ID); Type of cell, T.
-
-\textbf{Accesses}: responsiveToSignal[CXCL12], responsiveToSignal[CXCL13].
-
-\textbf{Alterations}: responsiveToSignal[CXCL12], responsiveToSignal[CXCL13].
-\\
-
-\textbf{Function}: updateChemokinesReceptors()
-
-\textbf{Notes}: 
- 
-\textbf{Input}: Cell, C (ID).
-
-\textbf{Accesses}: responsiveToSignal[CXCL12], responsiveToSignal[CXCL13].
-
-\textbf{Alterations}: responsiveToSignal[CXCL12], responsiveToSignal[CXCL13].
-
-\subsection{Algorithm 3 (Updating Position and Polarity of cells at each time-point)}
-
-\textbf{Function}: move()
- 
-\textbf{Notes}: With probability persistentLengthTime(Cell Type) do ..., looking at table of values, 
-
-persistentLengthTime is greater than 1 for all but one type of cell. 
-
-\textbf{Input}: Cell, C (ID).	
-
-\textbf{Accesses}: Polarity, responsiveToSignal[CXCL12], responsiveToSignal[CXCL13].
-
-\textbf{Alterations}: Cell Location; Cell Polarity
-\\
-\textbf{Function}: updateChemokinesReceptors() 
-
-\textbf{Notes}: The inputs $\Theta$ and $\Phi$ are randomly generated in the function move(). The instructions for this 
-
-function seem to be a bit confusing. Will need to draw this out to understand it better. 
-
-
-\textbf{Input}: Cell Polarity; $\Theta$; $\Phi$.  
-
-\textbf{Accesses}: 
-
-\textbf{Alterations}: Cell Polarity. 
-
-
-\subsection{Algorithm 4 (Updating events at the Centroblast Stage)}	
-
-\textbf{Function}: initiateCycle()
-
-\textbf{Notes}: getDuration($x$) implies sampling guassian with mean $x$, standard deviation 1.
-
-\textbf{Input}: Cell, C (ID); number of divisions to occur.
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: C.state, C.cycleStartTime, C.endOfThisPhase, C.numDivisionsToDo. 
-\\
-\textbf{Function}: progressCycle()
-
-\textbf{Notes}: 'Progress: ...' Implies that you move the cell to the next state available. 
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}: C.cycleStateTime, C.state. 
-
-\textbf{Alterations}: C.state, C.cycleStartTime, C.endOfThisPhase, C.numDivisionsToDo. 
-\\
-\textbf{Function}: divideAndMutate()
-
-\textbf{Notes}: This function can create a new cell. 
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}: C.retainedAg
-
-\textbf{Alterations}: New cell (Location and ID), IAmHighAg, retainedAg
-
-\subsection{Algorithm 5 (Antigen Collection from FDCs)}
-\textbf{Function}: progressFDCSelection()
-
-\textbf{Notes}: Clock++ means increase clock by 1 right? If so, is it really an integer? F is an FDC, f is a 
-
-fragment neighbouring C. 
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}: 
-
-\textbf{Alterations}: selectedClock, clock, selectable, numFDCContacts,  F.antigenAmount[f]. 
-
-\subsection{Algorithm 6 (Screening for T cell help at the Centrocyte Stage)}
-\textbf{Function}: progressTCellSelection()
-
-\textbf{Notes}: Calls functions in Algorithm individualDifDelay is Guassian.
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: state, tcClock, tcSignalDuration, individualDifDelay.
-
-\subsection{Algorithm 7 (Updating the T cells according to B cells Interactions)}
-\textbf{Note}: For the following two function, we introduce a list denoted 'ListInteractingB' to track the IDs of the B cells currently in interaction.
-\\
-\textbf{Function}: updateTCell()
-
-\textbf{Notes}:
-
-\textbf{Input}: Cell, TC (ID); Cell, B (ID). 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: TC.state, ListInteractingB
-\\
-\textbf{Function}: liberateTCell()
-
-\textbf{Notes}:
-
-\textbf{Input}: Cell, TC (ID); Cell, B (ID). 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: TC.state, ListInteractingB
-
-
-\subsection{Algorithm 8 (Transition between Centroblasts, centrocyctes, and output Cells)}	
-
-\textbf{Function}: differToOut()
-
-\textbf{Notes}: We track Out cells using list 'outList', and number of using 'numOutCells'.
-
-\textbf{Input}: Cell, C (ID);
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: numOutCells, outList
-\\
-\textbf{Function}: differToCB()
-
-\textbf{Notes}: We track Centroblasts using list 'CBlist'.
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: CBlist, pMutation, retainedAg, IAmHighAg
-\\
-\textbf{Function}: differToCC()
-
-\textbf{Notes}: We track Centrocytes using list 'CClist'. 
-
-\textbf{Input}: Cell, C (ID). 
-
-\textbf{Accesses}: C.retainedAg
-
-\textbf{Alterations}: State, numFCDContacts. 
-
-
-\subsection{Algorithm 9 (Initialisation)}
-
-\textbf{Function}: initialiseCells()
-
-\textbf{Notes}: 
-
-\textbf{Input}: Various inputs such as number of Stromal cells. 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}: Generates cells, FCD Fragments, etc. 
-
-
-\subsection{Algorithm 10 (Hyphasma: Simulation of Germinal Center)}
-	
-\textbf{Function}: initialiseCells()
-
-\textbf{Notes}: Driver function.
-
-\textbf{Input}: Various inputs regarding simulation parameters. 
-
-\textbf{Accesses}:
-
-\textbf{Alterations}:
-
-	
 \section{Definitions \& Terms.}
 
 \begin{itemize}
@@ -363,6 +344,7 @@ fragment neighbouring C.
 
 \end{itemize}
 
+\section{Misc.}
 \subsection{Questions for Julian}
 \begin{itemize}
 
