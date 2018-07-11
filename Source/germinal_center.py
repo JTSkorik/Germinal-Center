@@ -9,6 +9,8 @@ from types import SimpleNamespace
 import copy
 
 
+THIS_IS_A_GLOBAL_VALRIABLE = 3
+
 # TODO signal_secretion, diffusion, and turn_angle functions.
 
 # noinspection PyUnresolvedReferences
