@@ -51,6 +51,8 @@ The germinal center has a maximum size. We generate ID values from 0 to the maxi
 
 In main function, we have to iterate over lists randomly and occasionally remove elements from this list, can do so using enumerate function to track indices of what needs to be removed. 
 
+Can pass a cell object to a new function, edit it and not have to return the cell object for changes to be reflected, they'll occur automatically. 
+
 
 
 \section{Parameters for each Cell}
@@ -238,6 +240,9 @@ tcSignalDuration & Float &
 individualDifDelay & Float &
 \tabularnewline
 \hline
+TCell\_Contact & None or Integer & If in contact with T cell, this stores the ID of said T cell. 
+\tabularnewline
+\hline
 \end{tabular}
 \end{center}
 
@@ -259,6 +264,9 @@ State & Enumeration & Current state of the cell.
 \tabularnewline
 \hline
 Polarity & 3D Numpy Array / Vector & Polarity of cell.
+\tabularnewline
+\hline
+BCell\_Contacts & List of integers & List of IDs of B cells (Centrocytes) in contact with T cell. 
 \tabularnewline
 \hline
 
@@ -345,10 +353,10 @@ responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL
 \end{itemize}
 
 \section{Misc.}
-\subsection{Questions for Julian}
+\subsection{Questions.}
 \begin{itemize}
 
-\item Currently no question. 
+\item The description at the start shows that the cells stay in either the light or the dark zone. In the simulations, we define these as the lower and upper parts of the sphere.  Centroblasts can eventually become centrocytes, which reside in different parts. The algorithms don't force the cell to be in the right zone after converting. 
 
 
 \end{itemize}
@@ -357,11 +365,15 @@ responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL
 
 \begin{itemize}
 
-\item Configure ssh key on github account and on computer
+\item Class parameters
 
-\item Go through learn git branching try.github.io
+\item dictionaries
 
-\item Book: Chapters 1, 3, 9, 11, 15, 16, 18, 19 
+\item replace grid dictionaries with numpy array
+
+\item watch video and read papers
+
+\item look at docstring/html
 
 \end{itemize}
 

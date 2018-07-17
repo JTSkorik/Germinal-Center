@@ -82,7 +82,7 @@ Algorithm 5, C.clock suggest we add one to the clock counter. Next line says to 
 \tabularnewline
 \hline
 
-Algorithm 5, lines 8 and 9. What if he have multiple fragments next to the cell? & Found the maximum expression for the formula given on line 9. & Can only bond with one and the antigen amounts from multiple neighbouring fragments would not add. Bonds with the one with most	 antigen. 
+Algorithm 5, lines 8 and 9. What if he have multiple fragments next to the cell? & Found the maximum expression for the formula given on line 9. & Can only bond with one and the antigen amounts from multiple neighbouring fragments would not add. Bonds with the one with most antigen. 
 \tabularnewline
 \hline
 
@@ -118,11 +118,15 @@ Move function has no specifications forcing certain types of cells in the light 
 \tabularnewline
 \hline
 
-Algorithm 10, line 10 refers to a variable $d_{t}$, referenced elsewhere. & Let it be dt. & Assume type was made. 
+Algorithm 10, line 10 refers to a variable $d_{t}$, not referenced elsewhere. & Let it be dt. & Assume typo	 was made. 
 \tabularnewline
 \hline
 
 Does not state whether T cells are responsive to CXCL12 and CXCL13, which is required for move function. & Set both to False & Assume unresponsive. 
+\tabularnewline
+\hline
+
+ & T Cells may not be required to pass through part of move function requiring these values (which would correspond to both values being False). Seems possible due to poor documentation.  &
 \tabularnewline
 \hline
 
