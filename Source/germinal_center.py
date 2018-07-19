@@ -58,7 +58,7 @@ def initiate_chemokine_receptors(id, parameters):
         parameters.responsiveToCXCL13[id] = True
     elif parameters.Type[id] == CellType.OutCell:
         parameters.responsiveToCXCL12[id] = False
-        parameters.responsiveToCXCL13[id] = True
+        parameters.responsiveToCXCL13[id] = False
     else:
         print("initiate_chemokine_receptors: Invalid cell_type, {}".format(parameters.Type[id]))
 
@@ -72,7 +72,7 @@ def update_chemokines_receptors(id, parameters):
     """
     pos = parameters.Position[id]
     if parameters.Type[id] == CellType.Centrocyte:
-        if parameters.State[id] == CellState.Unselected:
+        if parameters.State[id] in [CellState.Unselected, CellState.FDCselected]:
             if parameters.grid_cxcl13[pos] > parameters.CXCL13_CRIT:
                 parameters.responsiveToCXCL13[id] = False
             elif parameters.grid_cxcl13[pos] < parameters.CXCL13_RECRIT:
@@ -227,12 +227,14 @@ def progress_cycle(id, parameters):
     """
     # Progress cell into its next state
     parameters.cycleStartTime[id] += parameters.DT
-    if parameters.cycleStartTime[id] > parameters.endOfThisPhase:
+    if parameters.cycleStartTime[id] > parameters.endOfThisPhase[id]:
         if parameters.State[id] == CellState.cb_G1:
             parameters.State[id] = CellState.cb_S
         elif parameters.State[id] == CellState.cb_S:
             parameters.State[id] = CellState.cb_G2
         elif parameters.State[id] == CellState.cb_G2:
+            parameters.State[id] = CellState.cb_M
+        elif parameters.State[id] == CellState.cb_M:
             parameters.State[id] = CellState.cb_divide
 
         # Finds time till end of new state.
@@ -284,7 +286,6 @@ def divide_and_mutate(id, parameters):
             parameters.Grid_ID[divide_pos] = new_id
             parameters.Grid_Type[divide_pos] = parameters.Type[new_id]
 
-
             # Initiate the cycle for each cell.
             initiate_cycle(id, parameters)
             initiate_cycle(new_id, parameters)
@@ -312,7 +313,7 @@ def divide_and_mutate(id, parameters):
                         parameters.IAmHighAg[id] = True
             else:
                 parameters.retainedAg[id] = parameters.retainedAg[id] / 2
-                parameters.retainedAg[new_id] = parameters.retainedAg[id] / 2
+                parameters.retainedAg[new_id] = parameters.retainedAg[id]
 
 
 def progress_fdc_selection(id, parameters):
@@ -344,7 +345,7 @@ def progress_fdc_selection(id, parameters):
 
                 pBind = affinity(parameters.BCR[id]) * frag_max / parameters.ANTIGEN_SATURATION
                 # Bind cell and fragment with probability pBind or reset clock.
-                if random.choice(0, 1) < pBind:
+                if random.uniform(0, 1) < pBind:
                     parameters.State[id] = CellState.FDCcontact
                     parameters.FragContact[id] = frag_max_id
                 else:
@@ -362,7 +363,7 @@ def progress_fdc_selection(id, parameters):
         if random.uniform(0, 1) < parameters.P_SEL:
             parameters.numFDCContacts[id] += 1
             frag_id = parameters.FragContact[id]
-            parameters.antigenAmount[id] -= 1
+            parameters.antigenAmount[frag_id] -= 1
             parameters.State[id] = CellState.Unselected
             parameters.Clock[id] = 0
             parameters.selectable[id] = False
@@ -489,11 +490,13 @@ def differ_to_cb(id, parameters):
 
     # Find number of divisions to do.
     agFactor = parameters.numFDCContacts[id] ** parameters.pMHCdepHill
-    parameters.numDivisionsToDo[id] = parameters.pMHCdepMin + (parameters.pMHCdepMax - parameters.pMHCdepMin) * agFactor / (
-        agFactor + parameters.pMHCdepK ** parameters.pMHCdepHill)
+    parameters.numDivisionsToDo[id] = parameters.pMHCdepMin + (
+                                                              parameters.pMHCdepMax - parameters.pMHCdepMin) * agFactor / (
+                                                                  agFactor + parameters.pMHCdepK ** parameters.pMHCdepHill)
 
     # Find new probability of mutation.
-    parameters.pMutation[id] = p_mut(parameters.t) + (parameters.PROB_MUT_AFTER_SELECTION - p_mut(parameters.t)) * affinity(
+    parameters.pMutation[id] = p_mut(parameters.t) + (parameters.PROB_MUT_AFTER_SELECTION - p_mut(
+        parameters.t)) * affinity(
         parameters.BCR[id]) ** parameters.PROB_MUT_AFFINITY_EXPONENT
 
     # Initiate cell.
@@ -524,7 +527,6 @@ def differ_to_cc(id, parameters):
     parameters.tcSignalDuration[id] = None
     parameters.IndividualDifDelay[id] = None
     parameters.TCell_Contact[id] = None
-
 
     initiate_chemokine_receptors(id, parameters)
     parameters.Grid_Type[parameters.Position[id]] = CellType.Centrocyte
@@ -654,7 +656,6 @@ def initialise_cells(parameters):
         parameters.cycleStartTime[id] = None
         parameters.endOfThisPhase[id] = None
 
-
         initiate_cycle(id, parameters)
         initiate_chemokine_receptors(id, parameters)
 
@@ -719,7 +720,8 @@ def hyphasma(parameters):
             for frag_id in fragments:
                 for bcr_seq in parameters.BCR_values_all:
                     d_ic = parameters.DT * (
-                        parameters.K_ON * parameters.antigenAmount[frag_id] * parameters.AntibodyPerBCR[bcr_seq] - k_off(
+                        parameters.K_ON * parameters.antigenAmount[frag_id] * parameters.AntibodyPerBCR[
+                            bcr_seq] - k_off(
                             bcr_seq) * parameters.icAmount[frag_id])
                     parameters.antigenAmount[frag_id] -= d_ic
                     parameters.icAmount[frag_id] += d_ic
@@ -946,22 +948,19 @@ class Params():
         self.NumBCROutCellsProduce = {bcr: 0 for bcr in self.BCR_values_initial}
         self.AntibodyPerBCR = {bcr: 0 for bcr in self.BCR_values_initial}
 
-        # Dictionaries storing what is at each location. Initially empty, so 'None'.
-        self.Grid_ID = {pos: None for pos in self.ALL_POINTS}
-        self.Grid_Type = {pos: None for pos in self.ALL_POINTS}
+        # Numpy Arrays storing what is at each location. Outside of sphere the points take value -1,
+        # initially the points inside the sphere take value None.
+        self.Grid_ID = np.full((self.N + 2, self.N + 2, self.N + 2), -1, dtype=object)
+        self.Grid_Type = np.full((self.N + 2, self.N + 2, self.N + 2), -1, dtype=object)
+        for point in self.ALL_POINTS:
+            self.Grid_ID[point] = None
+            self.Grid_Type[point] = None
 
         # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
 
-        self.grid_cxcl12 = {pos: random.uniform(80e-11, 80e-10) for pos in
-                            [(x + self.N / 2 + 1, y + self.N / 2 + 1, z + self.N / 2 + 1) for x in
-                             range(-self.N // 2 - 1, self.N // 2 + 1) for y in
-                             range(-self.N // 2 - 1, self.N // 2 + 1)
-                             for z in range(-self.N // 2 - 1, self.N // 2 + 1)]}
-        self.grid_cxcl13 = {pos: random.uniform(0.1e-10, 0.1e-9) for pos in
-                            [(x + self.N / 2 + 1, y + self.N / 2 + 1, z + self.N / 2 + 1) for x in
-                             range(-self.N // 2 - 1, self.N // 2 + 1) for y in
-                             range(-self.N // 2 - 1, self.N // 2 + 1)
-                             for z in range(-self.N // 2 - 1, self.N // 2 + 1)]}
+
+        self.grid_cxcl12 = np.random.uniform(80e-11, 80e-10, (self.N + 2, self.N + 2, self.N + 2))
+        self.grid_cxcl12 = np.random.uniform(0.1e-10, 0.1e-9, (self.N + 2, self.N + 2, self.N + 2))
 
         # Dynamic number of divisions:
         self.NUM_DIV_INITIAL_CELLS = 3
@@ -1055,7 +1054,7 @@ class Params():
         self.responsiveToCXCL13 = {}
 
         # Centroblasts
-        self.numDivisionsToDo= {}
+        self.numDivisionsToDo = {}
         self.pMutation = {}
         self.IAmHighAg = {}
         self.retainedAg = {}
@@ -1080,7 +1079,7 @@ class Params():
         self.Parent = {}
 
         # T Cells
-        self.BCell_Contacts = []
+        self.BCell_Contacts = {}
 
 
 # Enumerations to replace string comparisons:
