@@ -491,7 +491,7 @@ def differ_to_cb(id, parameters):
     # Find number of divisions to do.
     agFactor = parameters.numFDCContacts[id] ** parameters.pMHCdepHill
     parameters.numDivisionsToDo[id] = parameters.pMHCdepMin + (
-                                                              parameters.pMHCdepMax - parameters.pMHCdepMin) * agFactor / (
+                                                                  parameters.pMHCdepMax - parameters.pMHCdepMin) * agFactor / (
                                                                   agFactor + parameters.pMHCdepK ** parameters.pMHCdepHill)
 
     # Find new probability of mutation.
@@ -660,7 +660,7 @@ def initialise_cells(parameters):
         initiate_chemokine_receptors(id, parameters)
 
     # Initialise T Cells:
-    for i in range(parameters.INITIAL_NUM_TC):
+    for _ in range(parameters.INITIAL_NUM_TC):
         pos = random.choice(parameters.LIGHT_ZONE)  # Find empty location in light zone
         while parameters.Grid_ID[pos] is not None:
             pos = random.choice(parameters.LIGHT_ZONE)
@@ -726,7 +726,7 @@ def hyphasma(parameters):
                     parameters.antigenAmount[frag_id] -= d_ic
                     parameters.icAmount[frag_id] += d_ic
 
-        # Update the number of outcells and amount of antibody for each CR value.
+        # Update the number of outcells and amount of antibody for each BCR value.
         for bcr_seq in parameters.BCR_values_all:
             transfert = math.floor(
                 parameters.NumBCROutCells[bcr_seq] * parameters.PM_DIFFERENTIATION_RATE * parameters.DT)

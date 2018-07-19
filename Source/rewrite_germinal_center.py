@@ -4,6 +4,7 @@ import math
 import numpy as np
 import itertools
 from enum import Enum
+import matplotlib.pyplot as plt
 
 
 # Enumerations for Cell Type and State comparisons
@@ -94,7 +95,7 @@ class Params():
         self.initial_num_stromal_cells = 30
         self.initial_num_fdc = 20
         self.initial_num_seeder = 3
-        self.initial_num_tc = 25
+        self.initial_num_tcells = 25
 
         self.dendrite_length = 8
         self.initial_antigen_amount_per_fdc = 3000
@@ -118,7 +119,7 @@ class Params():
 
 
         self.grid_cxcl12 = np.random.uniform(80e-11, 80e-10, (self.n + 2, self.n + 2, self.n + 2))
-        self.grid_cxcl12 = np.random.uniform(0.1e-10, 0.1e-9, (self.n + 2, self.n + 2, self.n + 2))
+        self.grid_cxcl13 = np.random.uniform(0.1e-10, 0.1e-9, (self.n + 2, self.n + 2, self.n + 2))
 
         # dynamic number of divisions:
         self.num_div_initial_cells = 3
@@ -427,6 +428,7 @@ def move(cell_id, parameters):
                 moved = True
             count += 1
 
+
 def turn_angle(cell_id, theta, phi, parameters):
     """
     Incomplete
@@ -629,7 +631,7 @@ def progress_tcell_selection(cell_id, parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    cell_state = parameters.CellState[cell_id]
+    cell_state = parameters.state[cell_id]
 
     if cell_state == CellState.FDCselected:
         # Find if there is a neighbouring T cell.
@@ -795,7 +797,148 @@ def initialise_cells(parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    pass
+    # Initialise Stromal Cells
+    for _ in range(parameters.initial_num_stromal_cells):
+        # Find empty location in dark zone
+        cell_position = random.choice(parameters.dark_zone)
+        while parameters.grid_id[cell_position] is not None:
+            cell_position = random.choice(parameters.dark_zone)
+
+        cell_id = parameters.available_cell_ids.pop()
+
+        # Add to appropriate lists and dictionaries
+        parameters.list_stromal.append(cell_id)
+        parameters.type[cell_id] = CellType.Stromal
+        parameters.position[cell_id] = cell_position
+
+        parameters.grid_id[cell_position] = cell_id
+        parameters.grid_type[cell_position] = CellType.Stromal
+
+    # Initialise F Cells and Fragments
+    for _ in range(parameters.initial_num_fdc):
+        # Find empty location in light zone
+        cell_position = random.choice(parameters.light_zone)
+        while parameters.grid_id[cell_position] is not None:
+            cell_position = random.choice(parameters.dark_zone)
+
+        cell_id = parameters.available_cell_ids.pop()
+
+        # Add to appropriate lists and dictionaries
+        parameters.list_fdc.append(cell_id)
+
+        parameters.type[cell_id] = CellType.FCell
+        parameters.position[cell_id] = cell_position
+        parameters.antigen_amount[cell_id] = None
+        parameters.ic_amount[cell_id] = 0
+        parameters.fragments[cell_id] = []
+
+        parameters.grid_id[cell_position] = cell_id
+        parameters.grid_type[cell_position] = CellType.FCell
+
+        # Find fragments for F cell
+        fcell_id = cell_id
+        fragments = parameters.fragments[fcell_id]
+        x, y, z = cell_position
+        for i in range(1, parameters.dendrite_length + 1):
+            for fragment_position in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
+                try:
+                    if parameters.grid_id[fragment_position] == None:
+                        fragment_id = parameters.available_cell_ids.pop()
+                        fragments.append(fragment_id)
+
+                        parameters.type[fragment_id] = CellType.Fragment
+                        parameters.position[fragment_id] = fragment_position
+                        parameters.antigen_amount[fragment_id] = None
+                        parameters.ic_amount[fragment_id] = 0
+                        parameters.parent[fragment_id] = fcell_id
+
+                        parameters.grid_id[fragment_position] = fragment_id
+                        parameters.grid_type[fragment_position] = CellType.Fragment
+                except IndexError:
+                    pass
+
+            # When z axis moves towards dark zone, we need to check fragment position is still in light zone
+            try:
+                if parameters.grid_id[(x, y, z + i)] is None:
+                    fragment_id = parameters.available_cell_ids.pop()
+                    fragments.append(fragment_id)
+
+                    parameters.type[fragment_id] = CellType.Fragment
+                    parameters.position[fragment_id] = fragment_position
+                    parameters.antigen_amount[fragment_id] = None
+                    parameters.ic_amount[fragment_id] = 0
+                    parameters.parent[fragment_id] = fcell_id
+
+                    parameters.grid_id[fragment_position] = fragment_id
+                    parameters.grid_type[fragment_position] = CellType.Fragment
+
+            except IndexError:
+                pass
+
+            # Assign each fragment an amount of antigen
+            fcell_volume = len(fragments) + 1  # +1 accounts for centre
+            ag_per_frag = parameters.initial_antigen_amount_per_fdc / fcell_volume
+            for cell_id in [fcell_id] + fragments:
+                parameters.antigen_amount[cell_id] = ag_per_frag
+
+        # Initialise Seeder Cells
+        for _ in range(parameters.initial_num_seeder):
+            # Find empty location in light zone
+            cell_position = random.choice(parameters.light_zone)
+            while parameters.grid_id[cell_position] is not None:
+                cell_position = random.choice(parameters.dark_zone)
+
+            cell_id = parameters.available_cell_ids.pop()
+
+            # Add to appropriate lists and dictionaries
+            parameters.list_cb.append(cell_id)
+
+            polarity_vector = np.random.standard_normal(3)
+            polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
+
+            parameters.type[cell_id] = CellType.Centroblast
+            parameters.position[cell_id] = cell_position
+            parameters.state[cell_id] = None
+            parameters.bcr[cell_id] = random.choice(parameters.bcr_values_initial)
+            parameters.polarity[cell_id] = polarity_vector
+            parameters.responsive_to_cxcl12[cell_id] = None
+            parameters.responsive_to_cxcl13[cell_id] = None
+            parameters.num_divisions_to_do[cell_id] = parameters.num_div_initial_cells
+            parameters.p_mutation[cell_id] = p_mut(parameters.t)
+            parameters.i_am_high_ag[cell_id] = False
+            parameters.retained_ag[cell_id] = 0.0
+            parameters.cycle_start_time[cell_id] = None
+            parameters.end_of_this_phase[cell_id] = None
+
+            # Initialise cells
+            initiate_cycle(cell_id, parameters)
+            initiate_chemokine_receptors(cell_id, parameters)
+
+        # Initialise T cells
+        for _ in range(parameters.initial_num_tcells):
+            # Find empty location in light zone
+            cell_position = random.choice(parameters.light_zone)
+            while parameters.grid_id[cell_position] is not None:
+                cell_position = random.choice(parameters.dark_zone)
+
+            cell_id = parameters.available_cell_ids.pop()
+
+            # Add to appropriate lists and dictionaries
+            parameters.list_outcells.append(cell_id)
+
+            polarity_vector = np.random.standard_normal(3)
+            polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
+
+            parameters.type[cell_id] = CellType.TCell
+            parameters.position[cell_id] = cell_position
+            parameters.state[cell_id] = CellState.TCnormal
+            parameters.polarity[cell_id] = polarity_vector
+            parameters.responsive_to_cxcl12[cell_id] = False
+            parameters.responsive_to_cxcl13[cell_id] = False
+            parameters.bcell_contacts[cell_id] = []
+
+            parameters.grid_id[cell_position] = cell_id
+            parameters.grid_type[cell_position] = CellType.TCell
 
 
 def hyphasma(parameters):
@@ -804,6 +947,106 @@ def hyphasma(parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
+    # TODO efficient removal of cells from lists
+    initialise_cells(parameters)
+
+    while parameters.t <= parameters.tmax:
+
+        print(parameters.t)
+        # Track the number of B cells at each time step.
+        parameters.num_bcells.append(len(parameters.list_cc) + len(parameters.list_cb))
+        if parameters.num_bcells[-1] > 3:
+            print("Number B Cells: {}".format(parameters.num_bcells[-1]))
+            print("Number Centroblasts: {}".format(len(parameters.list_cb)))
+            print("Number Centrocytes: {}".format(len(parameters.list_cc)))
+        parameters.times.append(parameters.t)
+
+        # Secrete CXCL12 from Stromal cells
+        for cell_id in parameters.list_stromal:
+            signal_secretion()
+
+        random.shuffle(parameters.list_fdc)
+        for cell_id in parameters.list_fdc:
+            # Secrete CXCL13 from F Cells
+            signal_secretion()
+
+            # Update antigen amounts for each fragment
+            fragments = parameters.fragments[cell_id]
+            for fragment_id in fragments:
+                for bcr_seq in parameters.bcr_values_all:
+                    d_ic = parameters.dt * (
+                        parameters.k_on * parameters.antigen_amount[fragment_id] * parameters.antibody_per_bcr[
+                            bcr_seq] - k_off(bcr_seq) * parameters.ic_amount[fragment_id])
+                    parameters.antigen_amount[fragment_id] -= d_ic
+                    parameters.ic_amount[fragment_id] += d_ic
+
+        # Update the number of outcells and amount of antibody for each CR value.
+        for bcr_seq in parameters.bcr_values_all:
+            transfer_t = math.floor(
+                parameters.num_bcr_outcells[bcr_seq] * parameters.pm_differentiation_rate * parameters.dt)
+            parameters.num_bcr_outcells[bcr_seq] -= transfer_t
+            parameters.num_bcr_outcells_produce[bcr_seq] += transfer_t
+            parameters.antibody_per_bcr[bcr_seq] = parameters.num_bcr_outcells_produce[
+                                                       bcr_seq] * parameters.ab_prod_factor - parameters.antibody_degradation * \
+                                                                                              parameters.antibody_per_bcr[
+                                                                                                  bcr_seq]
+
+        # Randomly iterate of outcells and move, remove if on surface of GC
+        random.shuffle(parameters.list_outcells)
+        for cell_id in parameters.list_outcells:
+            move(cell_id, parameters)
+            cell_position = parameters.position[cell_id]
+            if is_surface_point(cell_position, parameters.grid_id):
+                parameters.list_outcells.remove(cell_id)
+                parameters.available_cell_ids.append(cell_id)
+
+        # Randomly iterate over Centroblast cells
+        random.shuffle(parameters.list_cb)
+        for cell_id in parameters.list_cb:
+            # Update cell properties
+            update_chemokines_receptors(cell_id, parameters)
+            progress_cycle(cell_id, parameters)
+
+            # Attempt to divide if ready
+            if parameters.state[cell_id] == CellState.stop_dividing:
+                divide_and_mutate(cell_id, parameters)
+
+            if parameters.state[cell_id] == CellState.stop_dividing:
+                if random.uniform(0, 1) < parameters.prob_dif:
+                    if parameters.i_am_high_ag[cell_id]:
+                        differ_to_out(cell_id, parameters)
+                        parameters.list_cb.remove(cell_id)
+                    else:
+                        differ_to_cc(cell_id, parameters)
+                        parameters.list_cb.remove(cell_id)
+
+            # Move allowed cells
+            if parameters.state[cell_id] != CellState.cb_M:
+                move(cell_id, parameters)
+
+        # Randomly iterated over Centrocyte cells.
+        random.shuffle(parameters.list_cc)
+        for cell_id in parameters.list_cc:
+            # Update cell progress
+            update_chemokines_receptors(cell_id, parameters)
+            progress_fdc_selection(cell_id, parameters)
+            progress_tcell_selection(cell_id, parameters)
+
+            # Remove cell from simulation if dead
+            if parameters.state[cell_id] == CellState.Apoptosis:
+                parameters.list_cb.remove(cell_id)
+                parameters.available_cell_ids.append(cell_id)
+            elif parameters.state[cell_id] not in [CellState.FDCcontact, CellState.TCcontact]:
+                move(cell_id, parameters)
+
+        # Randomly iterate over T cells and move if not attached to another cell
+        random.shuffle(parameters.list_tc)
+        for cell_id in parameters.list_tc:
+            if parameters.state[cell_id] == CellState.TCnormal:
+                move(cell_id, parameters)
+
+        # TODO collision resolution?
+        parameters.t += parameters.dt
 
 
 # The following functions are small functions to assist the main functions.
@@ -839,7 +1082,9 @@ def k_off(bcr):
     :param bcr: 4-digit integer, BCR value for a cell.
     :return: float, k_off value.
     """
-    pass
+    hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
+    return parameters.k_on / (
+    10 ** (parameters.exp_min + math.exp(-(hamming_dist / 2.8) ** 2) * parameters.exp_max - parameters.exp_min))
 
 
 def p_mut(time):
@@ -882,15 +1127,27 @@ def get_duration(state):
     return duration
 
 
-def is_surface_point(position):
+def is_surface_point(position, grid_id):
     """
     Determines if a given point is on the surface of the germinal center. Define the
     surface to be any point that has a face neighbour outside of the germinal center.
     :param position: 3-tuple, position within the germinal center.
+    :param grid_id: 3d numpy array, position within cells returns what is located at that position.
     :return: boolean, where the position is on the surface of the germinal center.
     """
+    position_numpy = np.array(position)
+    # Test the main neighbouring points to determine if they are inside the Germinal Center
+    for movement in [np.array([1, 0, 0]), np.array([-1, 0, 0]), np.array([0, 1, 0]), np.array([0, -1, 0]),
+                     np.array([0, 0, 1]), np.array([0, 0, -1])]:
+        neighbour_position = position_numpy + movement
+        if grid_id[tuple(neighbour_position)] == -1:
+            return True
 
+    return False
 
 if __name__ == "__main__":
     parameters = Params()
     hyphasma(parameters)
+    plt.plot(parameters.times, parameters.num_bcells)
+    plt.show()
+
