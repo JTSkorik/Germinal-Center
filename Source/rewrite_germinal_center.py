@@ -882,63 +882,64 @@ def initialise_cells(parameters):
                 parameters.antigen_amount[cell_id] = ag_per_frag
 
         # Initialise Seeder Cells
-        for _ in range(parameters.initial_num_seeder):
-            # Find empty location in light zone
-            cell_position = random.choice(parameters.light_zone)
-            while parameters.grid_id[cell_position] is not None:
-                cell_position = random.choice(parameters.dark_zone)
+    for _ in range(parameters.initial_num_seeder):
+        # Find empty location in light zone
+        cell_position = random.choice(parameters.light_zone)
+        while parameters.grid_id[cell_position] is not None:
+            cell_position = random.choice(parameters.dark_zone)
 
-            cell_id = parameters.available_cell_ids.pop()
+        cell_id = parameters.available_cell_ids.pop()
 
-            # Add to appropriate lists and dictionaries
-            parameters.list_cb.append(cell_id)
+        # Add to appropriate lists and dictionaries
+        parameters.list_cb.append(cell_id)
+        print(parameters.list_cb)
 
-            polarity_vector = np.random.standard_normal(3)
-            polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
+        polarity_vector = np.random.standard_normal(3)
+        polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
 
-            parameters.type[cell_id] = CellType.Centroblast
-            parameters.position[cell_id] = cell_position
-            parameters.state[cell_id] = None
-            parameters.bcr[cell_id] = random.choice(parameters.bcr_values_initial)
-            parameters.polarity[cell_id] = polarity_vector
-            parameters.responsive_to_cxcl12[cell_id] = None
-            parameters.responsive_to_cxcl13[cell_id] = None
-            parameters.num_divisions_to_do[cell_id] = parameters.num_div_initial_cells
-            parameters.p_mutation[cell_id] = p_mut(parameters.t)
-            parameters.i_am_high_ag[cell_id] = False
-            parameters.retained_ag[cell_id] = 0.0
-            parameters.cycle_start_time[cell_id] = None
-            parameters.end_of_this_phase[cell_id] = None
+        parameters.type[cell_id] = CellType.Centroblast
+        parameters.position[cell_id] = cell_position
+        parameters.state[cell_id] = None
+        parameters.bcr[cell_id] = random.choice(parameters.bcr_values_initial)
+        parameters.polarity[cell_id] = polarity_vector
+        parameters.responsive_to_cxcl12[cell_id] = None
+        parameters.responsive_to_cxcl13[cell_id] = None
+        parameters.num_divisions_to_do[cell_id] = parameters.num_div_initial_cells
+        parameters.p_mutation[cell_id] = p_mut(parameters.t)
+        parameters.i_am_high_ag[cell_id] = False
+        parameters.retained_ag[cell_id] = 0.0
+        parameters.cycle_start_time[cell_id] = None
+        parameters.end_of_this_phase[cell_id] = None
 
-            # Initialise cells
-            initiate_cycle(cell_id, parameters)
-            initiate_chemokine_receptors(cell_id, parameters)
+        # Initialise cells
+        initiate_cycle(cell_id, parameters)
+        initiate_chemokine_receptors(cell_id, parameters)
 
-        # Initialise T cells
-        for _ in range(parameters.initial_num_tcells):
-            # Find empty location in light zone
-            cell_position = random.choice(parameters.light_zone)
-            while parameters.grid_id[cell_position] is not None:
-                cell_position = random.choice(parameters.dark_zone)
+    # Initialise T cells
+    for _ in range(parameters.initial_num_tcells):
+        # Find empty location in light zone
+        cell_position = random.choice(parameters.light_zone)
+        while parameters.grid_id[cell_position] is not None:
+            cell_position = random.choice(parameters.dark_zone)
 
-            cell_id = parameters.available_cell_ids.pop()
+        cell_id = parameters.available_cell_ids.pop()
 
-            # Add to appropriate lists and dictionaries
-            parameters.list_outcells.append(cell_id)
+        # Add to appropriate lists and dictionaries
+        parameters.list_outcells.append(cell_id)
 
-            polarity_vector = np.random.standard_normal(3)
-            polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
+        polarity_vector = np.random.standard_normal(3)
+        polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
 
-            parameters.type[cell_id] = CellType.TCell
-            parameters.position[cell_id] = cell_position
-            parameters.state[cell_id] = CellState.TCnormal
-            parameters.polarity[cell_id] = polarity_vector
-            parameters.responsive_to_cxcl12[cell_id] = False
-            parameters.responsive_to_cxcl13[cell_id] = False
-            parameters.bcell_contacts[cell_id] = []
+        parameters.type[cell_id] = CellType.TCell
+        parameters.position[cell_id] = cell_position
+        parameters.state[cell_id] = CellState.TCnormal
+        parameters.polarity[cell_id] = polarity_vector
+        parameters.responsive_to_cxcl12[cell_id] = False
+        parameters.responsive_to_cxcl13[cell_id] = False
+        parameters.bcell_contacts[cell_id] = []
 
-            parameters.grid_id[cell_position] = cell_id
-            parameters.grid_type[cell_position] = CellType.TCell
+        parameters.grid_id[cell_position] = cell_id
+        parameters.grid_type[cell_position] = CellType.TCell
 
 
 def hyphasma(parameters):
