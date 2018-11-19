@@ -116,8 +116,6 @@ class Params():
             self.grid_type[point] = None
 
         # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
-
-
         self.grid_cxcl12 = np.random.uniform(80e-11, 80e-10, (self.n + 2, self.n + 2, self.n + 2))
         self.grid_cxcl13 = np.random.uniform(0.1e-10, 0.1e-9, (self.n + 2, self.n + 2, self.n + 2))
 
@@ -964,12 +962,12 @@ def hyphasma(parameters):
 
         # Secrete CXCL12 from Stromal cells
         for cell_id in parameters.list_stromal:
-            signal_secretion()
+            signal_secretion(cell_id, parameters)
 
         random.shuffle(parameters.list_fdc)
         for cell_id in parameters.list_fdc:
             # Secrete CXCL13 from F Cells
-            signal_secretion()
+            signal_secretion(cell_id, parameters)
 
             # Update antigen amounts for each fragment
             fragments = parameters.fragments[cell_id]
@@ -1061,12 +1059,20 @@ def affinity(bcr):
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
 
-def signal_secretion():
+def signal_secretion(cell_id, parameters):
     """
 
+    :param cell_id: integer, determines which cell in population we are manipulating.
+    :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    pass
+    cell_position = parameters.position[cell_id]
+    cell_type = parameters.type[cell_id]
+
+    if cell_type == CellType.Stromal:
+        parameters.grid_cxcl12[tuple(cell_position)] += parameters.p_mk_cxcl12
+    elif cell_type == CellType.FCell:
+        parameters.grid_cxcl13[tuple(cell_position)] += parameters.p_mk_cxcl13
 
 
 def diffuse_signal():
