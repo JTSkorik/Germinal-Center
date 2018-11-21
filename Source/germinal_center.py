@@ -85,7 +85,6 @@ def update_chemokines_receptors(id, parameters):
 
 
 def move(id, parameters):
-    # TODO add check that the cells are staying inside their respective zones.
     """
     Algorithm 3, Updating Position and Polarity of cells at each time-point.
     Updates the polarity of a cell and then will move the cell within the Germinal center. Both events occur stochastically.

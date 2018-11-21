@@ -116,6 +116,7 @@ class Params():
             self.grid_type[point] = None
 
         # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
+        # TODO Make values generated follow a gradient
         self.grid_cxcl12 = np.random.uniform(80e-11, 80e-10, (self.n + 2, self.n + 2, self.n + 2))
         self.grid_cxcl13 = np.random.uniform(0.1e-10, 0.1e-9, (self.n + 2, self.n + 2, self.n + 2))
 
@@ -428,6 +429,7 @@ def move(cell_id, parameters):
 
 
 def turn_angle(cell_id, theta, phi, parameters):
+    # TODO determine how to turn the polarity based on phi and theta and implement
     """
     Incomplete
     Finds the new polarity for a cell based on its current polarity and given turning
@@ -623,8 +625,8 @@ def progress_fdc_selection(cell_id, parameters):
 
 
 def progress_tcell_selection(cell_id, parameters):
+    # TODO function explanation
     """
-
     :param cell_id: integer, determines which cell in population we are manipulating.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
@@ -709,6 +711,7 @@ def differ_to_out(cell_id, parameters):
     """
     parameters.list_outells.append(cell_id)
     parameters.num_bcr_outcells[parameters.bcr[cell_id]] += 1
+
     # Update cell and grid properties
     parameters.type[cell_id] = CellType.Outcell
     parameters.responsive_to_cxcl12 = None
@@ -856,6 +859,7 @@ def initialise_cells(parameters):
                     pass
 
             # When z axis moves towards dark zone, we need to check fragment position is still in light zone
+            # TODO this may be able ot be removed since it isn't a hard boundary. 
             try:
                 if parameters.grid_id[(x, y, z + i)] is None:
                     fragment_id = parameters.available_cell_ids.pop()
@@ -1044,7 +1048,6 @@ def hyphasma(parameters):
             if parameters.state[cell_id] == CellState.TCnormal:
                 move(cell_id, parameters)
 
-        # TODO collision resolution?
         parameters.t += parameters.dt
 
 
@@ -1076,6 +1079,7 @@ def signal_secretion(cell_id, parameters):
 
 
 def diffuse_signal():
+    # TODO diffuse_signal function
     """
 
     :return:
