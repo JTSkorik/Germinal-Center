@@ -1003,7 +1003,7 @@ def hyphasma(parameters):
         random.shuffle(parameters.list_outcells)
         outcells_to_remove = []
         for i in range(len(parameters.list_outcells)):
-            cell_id = outcells_to_remove[i]
+            cell_id = parameters.list_outcells[i]
             move(cell_id, parameters)
             cell_position = parameters.position[cell_id]
             if is_surface_point(cell_position, parameters.grid_id):
@@ -1190,9 +1190,8 @@ def is_surface_point(position, grid_id):
 
     return False
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     parameters = Params()
     hyphasma(parameters)
     plt.plot(parameters.times, parameters.num_bcells)
     plt.show()
-
