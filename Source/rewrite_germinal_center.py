@@ -115,10 +115,33 @@ class Params():
             self.grid_id[point] = None
             self.grid_type[point] = None
 
-        # Dictionaries storing amounts of CXCL12 and CXCL13 at each point:
-        # TODO Make values generated follow a gradient
-        self.grid_cxcl12 = np.random.uniform(80e-11, 80e-10, (self.n + 2, self.n + 2, self.n + 2))
-        self.grid_cxcl13 = np.random.uniform(0.1e-10, 0.1e-9, (self.n + 2, self.n + 2, self.n + 2))
+        # Numpy arrays storing amounts of CXCL12 and CXCL13 at each point:
+        self.grid_cxcl12 = np.zeros([self.n + 2, self.n + 2, self.n + 2])
+        self.grid_cxcl13 = np.zeros([self.n + 2, self.n + 2, self.n + 2])
+
+        # Lower and upper bounds for each end of the GC.
+        lower_cxcl12 = 80e-11
+        upper_cxcl12 = 80e-10
+        lower_cxcl13 = 0.1e-10
+        upper_cxcl13 = 0.1e-9
+
+        spread_cxcl12 = np.linspace(lower_cxcl12, upper_cxcl12, self.n)
+        spread_cxcl13 = np.linspace(lower_cxcl13, upper_cxcl13, self.n)
+
+        for i in range(1, self.n + 1):
+            self.grid_cxcl12[:,:,i] = spread_cxcl12[i-1]
+            noise_cxcl12 = np.random.normal(0, spread_cxcl12[i-1]/10, (self.n + 2 ,self.n + 2))
+            self.grid_cxcl12[:,:,i] += noise_cxcl12
+
+            self.grid_cxcl13[:,:,i] = spread_cxcl13[i-1]
+            noise_cxcl13 = np.random.normal(0, spread_cxcl13[i-1]/10, (self.n + 2, self.n + 2))
+            self.grid_cxcl13[:,:,i] += noise_cxcl13
+
+        # Set values outside of GC to zero
+        for (x,y,z), value in np.ndenumerate(self.grid_cxcl12):
+            if np.linalg.norm( np.array([x,y,z]) - np.array(self.offset) ) > (self.n / 2):
+                self.grid_cxcl12[x, y, z] = 0
+                self.grid_cxcl13[x, y, z] = 0
 
         # dynamic number of divisions:
         self.num_div_initial_cells = 3
@@ -625,8 +648,8 @@ def progress_fdc_selection(cell_id, parameters):
 
 
 def progress_tcell_selection(cell_id, parameters):
-    # TODO function explanation
     """
+    Progresses the current state of T cells.
     :param cell_id: integer, determines which cell in population we are manipulating.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
@@ -648,7 +671,7 @@ def progress_tcell_selection(cell_id, parameters):
     elif cell_state == CellState.TCcontact:
         parameters.tc_clock[cell_id] += parameters.dt
         tcell_id = parameters.tcell_contact[cell_id]
-        # Check is current cell has least amount of antigens compared to T cells neighbouring cells.
+        # Check is current cell has least amount of antigen compared to T cells neighbouring cells.
         lowest_antigen = True
         for bcell_id in parameters.bcell_contacts[tcell_id]:
             if cell_id != bcell_id and parameters.retained_ag[cell_id] <= parameters.retained_ag[bcell_id]:
@@ -837,13 +860,15 @@ def initialise_cells(parameters):
         parameters.grid_type[cell_position] = CellType.FCell
 
         # Find fragments for F cell
+        # We allow fragments to be in dark zone as it isn't a hard boundary
         fcell_id = cell_id
         fragments = parameters.fragments[fcell_id]
         x, y, z = cell_position
         for i in range(1, parameters.dendrite_length + 1):
-            for fragment_position in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i)]:
+            for fragment_position in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i), (x, y, z + i)]:
+                # Do nothing if position is outside of GC
                 try:
-                    if parameters.grid_id[fragment_position] == None:
+                    if parameters.grid_id[fragment_position] is None:
                         fragment_id = parameters.available_cell_ids.pop()
                         fragments.append(fragment_id)
 
@@ -858,32 +883,13 @@ def initialise_cells(parameters):
                 except IndexError:
                     pass
 
-            # When z axis moves towards dark zone, we need to check fragment position is still in light zone
-            # TODO this may be able ot be removed since it isn't a hard boundary. 
-            try:
-                if parameters.grid_id[(x, y, z + i)] is None:
-                    fragment_id = parameters.available_cell_ids.pop()
-                    fragments.append(fragment_id)
-
-                    parameters.type[fragment_id] = CellType.Fragment
-                    parameters.position[fragment_id] = fragment_position
-                    parameters.antigen_amount[fragment_id] = None
-                    parameters.ic_amount[fragment_id] = 0
-                    parameters.parent[fragment_id] = fcell_id
-
-                    parameters.grid_id[fragment_position] = fragment_id
-                    parameters.grid_type[fragment_position] = CellType.Fragment
-
-            except IndexError:
-                pass
-
             # Assign each fragment an amount of antigen
             fcell_volume = len(fragments) + 1  # +1 accounts for centre
             ag_per_frag = parameters.initial_antigen_amount_per_fdc / fcell_volume
             for cell_id in [fcell_id] + fragments:
                 parameters.antigen_amount[cell_id] = ag_per_frag
 
-        # Initialise Seeder Cells
+    # Initialise Centroblasts
     for _ in range(parameters.initial_num_seeder):
         # Find empty location in light zone
         cell_position = random.choice(parameters.light_zone)
@@ -950,13 +956,12 @@ def hyphasma(parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    # TODO efficient removal of cells from lists
     initialise_cells(parameters)
 
     while parameters.t <= parameters.tmax:
 
         print(parameters.t)
-        # Track the number of B cells at each time step.
+        # Track the number of B cells at each time step. (Used for Testing)
         parameters.num_bcells.append(len(parameters.list_cc) + len(parameters.list_cb))
         if parameters.num_bcells[-1] > 3:
             print("Number B Cells: {}".format(parameters.num_bcells[-1]))
@@ -996,16 +1001,22 @@ def hyphasma(parameters):
 
         # Randomly iterate of outcells and move, remove if on surface of GC
         random.shuffle(parameters.list_outcells)
-        for cell_id in parameters.list_outcells:
+        outcells_to_remove = []
+        for i in range(len(parameters.list_outcells)):
+            cell_id = outcells_to_remove[i]
             move(cell_id, parameters)
             cell_position = parameters.position[cell_id]
             if is_surface_point(cell_position, parameters.grid_id):
-                parameters.list_outcells.remove(cell_id)
+                outcells_to_remove.append(i)
                 parameters.available_cell_ids.append(cell_id)
+        for i in sorted(outcells_to_remove, reverse=True):
+            del(parameters.list_outcells[i])
 
         # Randomly iterate over Centroblast cells
         random.shuffle(parameters.list_cb)
-        for cell_id in parameters.list_cb:
+        centroblasts_to_remove = []
+        for i in range(len(parameters.list_cb)):
+            cell_id = parameters.list_cb[i]
             # Update cell properties
             update_chemokines_receptors(cell_id, parameters)
             progress_cycle(cell_id, parameters)
@@ -1018,29 +1029,37 @@ def hyphasma(parameters):
                 if random.uniform(0, 1) < parameters.prob_dif:
                     if parameters.i_am_high_ag[cell_id]:
                         differ_to_out(cell_id, parameters)
-                        parameters.list_cb.remove(cell_id)
+                        centroblasts_to_remove.append(i)
                     else:
                         differ_to_cc(cell_id, parameters)
-                        parameters.list_cb.remove(cell_id)
+                        centroblasts_to_remove.append(i)
 
             # Move allowed cells
             if parameters.state[cell_id] != CellState.cb_M:
                 move(cell_id, parameters)
+        for i in sorted(centroblasts_to_remove, reverse=True):
+            del(parameters.list_cb[i])
 
         # Randomly iterated over Centrocyte cells.
         random.shuffle(parameters.list_cc)
-        for cell_id in parameters.list_cc:
+        centrocytes_to_remove = []
+        for i in range(len(parameters.list_cc)):
+            cell_id = parameters.list_cc[i]
             # Update cell progress
             update_chemokines_receptors(cell_id, parameters)
             progress_fdc_selection(cell_id, parameters)
             progress_tcell_selection(cell_id, parameters)
 
-            # Remove cell from simulation if dead
+            # Store index for dead cells for removal
             if parameters.state[cell_id] == CellState.Apoptosis:
-                parameters.list_cb.remove(cell_id)
+                centrocytes_to_remove.append(i)
                 parameters.available_cell_ids.append(cell_id)
+            # Else move possible cells
             elif parameters.state[cell_id] not in [CellState.FDCcontact, CellState.TCcontact]:
                 move(cell_id, parameters)
+        # Remove dead Centrocytes
+        for i in sorted(centrocytes_to_remove, reverse=True):
+            del(parameters.list_cc[i])
 
         # Randomly iterate over T cells and move if not attached to another cell
         random.shuffle(parameters.list_tc)
@@ -1064,7 +1083,7 @@ def affinity(bcr):
 
 def signal_secretion(cell_id, parameters):
     """
-
+    Secrets predetermined amound of CXCL1212 from Stromal cells and CXCL13 from Fcells.
     :param cell_id: integer, determines which cell in population we are manipulating.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
@@ -1079,11 +1098,26 @@ def signal_secretion(cell_id, parameters):
 
 
 def diffuse_signal():
-    # TODO diffuse_signal function
     """
+    How do we do this?
+    We're going to make the CXCL12/13 concentrations follow an underlying
+    linear relationship with noise.
+    Can remove the linear relationship and only look at the noise.
+    Now need to find a way to disperse this noise then add linear relationship back.
 
-    :return:
+    Problem 1: We have diffusion constants.
+    Look at current time. Find the change of each square based on current state.
+    Somehow add randomness. Find net changes in each position and apply it all at once.
+
+    Problem 2: There is nothing that removes CXCL12/13 from the GC.
+    Should email Kim about this but will just allow it to be removed along the boundary.
+
+    Problem 3: Boundary values not given for CXCL12.
+    Assume zero.
+
     """
+    # TODO diffuse_signal function
+
     pass
 
 
