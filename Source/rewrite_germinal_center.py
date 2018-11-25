@@ -129,17 +129,17 @@ class Params():
         spread_cxcl13 = np.linspace(lower_cxcl13, upper_cxcl13, self.n)
 
         for i in range(1, self.n + 1):
-            self.grid_cxcl12[:,:,i] = spread_cxcl12[i-1]
-            noise_cxcl12 = np.random.normal(0, spread_cxcl12[i-1]/10, (self.n + 2 ,self.n + 2))
-            self.grid_cxcl12[:,:,i] += noise_cxcl12
+            self.grid_cxcl12[:, :, i] = spread_cxcl12[i - 1]
+            noise_cxcl12 = np.random.normal(0, spread_cxcl12[i - 1] / 10, (self.n + 2, self.n + 2))
+            self.grid_cxcl12[:, :, i] += noise_cxcl12
 
-            self.grid_cxcl13[:,:,i] = spread_cxcl13[i-1]
-            noise_cxcl13 = np.random.normal(0, spread_cxcl13[i-1]/10, (self.n + 2, self.n + 2))
-            self.grid_cxcl13[:,:,i] += noise_cxcl13
+            self.grid_cxcl13[:, :, i] = spread_cxcl13[i - 1]
+            noise_cxcl13 = np.random.normal(0, spread_cxcl13[i - 1] / 10, (self.n + 2, self.n + 2))
+            self.grid_cxcl13[:, :, i] += noise_cxcl13
 
         # Set values outside of GC to zero
-        for (x,y,z), value in np.ndenumerate(self.grid_cxcl12):
-            if np.linalg.norm( np.array([x,y,z]) - np.array(self.offset) ) > (self.n / 2):
+        for (x, y, z), value in np.ndenumerate(self.grid_cxcl12):
+            if np.linalg.norm(np.array([x, y, z]) - np.array(self.offset)) > (self.n / 2):
                 self.grid_cxcl12[x, y, z] = 0
                 self.grid_cxcl13[x, y, z] = 0
 
@@ -389,9 +389,8 @@ def move(cell_id, parameters):
     # Calculate new polarity
     if random.uniform(0, 1) < prob:
         # Obtain turning angles
-        theta = random.gauss(0, 1)
-        phi = random.uniform(0, 2 * math.pi)
-        turn_angle(cell_id, theta, phi, parameters)
+        phi = random.gauss(0, math.pi/4)
+        turn_angle(cell_id, phi, parameters)
 
     # Find CXCL13 influence
     if parameters.responsive_to_cxcl12:
@@ -451,19 +450,39 @@ def move(cell_id, parameters):
             count += 1
 
 
-def turn_angle(cell_id, theta, phi, parameters):
-    # TODO determine how to turn the polarity based on phi and theta and implement
+def turn_angle(cell_id, phi, parameters):
     """
-    Incomplete
     Finds the new polarity for a cell based on its current polarity and given turning
     angles, phi and theta.
     :param cell_id: integer, determines which cell in population we are manipulating.
-    :param theta: float, turning angle.
     :param phi: float, turning angle.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    pass
+
+    polarity = parameters.polarity[cell_id]
+
+    # Find random vector, r, on surface of unit sphere
+    r = np.random.standard_normal(3)
+    r = r / np.linalg.norm(r)
+
+    # Find random vector (v) perpendicular to polarity vector using random vector
+    v = r - np.dot(r, polarity) * polarity
+
+    # Rotate polarity about v.
+    # Create rotation matrix
+    R1 = np.cos(phi) * np.identity(3)
+    R2 = np.sin(phi) * np.array([[0, -v[2], v[1]],
+                                 [v[2], 0, -v[0]],
+                                 [-v[1], v[0], 0]])
+    R3 = (1 - np.cos(phi)) * np.outer(v, v)
+    R = R1 + R2 + R3
+
+    # Apply rotation matrix
+    polarity = np.dot(R, polarity)
+
+    # Update polarity parameters (normalise to ensure unit length)
+    parameters.polarity[cell_id] = polarity / np.linalg.norm(polarity)
 
 
 def initiate_cycle(cell_id, parameters):
@@ -865,7 +884,8 @@ def initialise_cells(parameters):
         fragments = parameters.fragments[fcell_id]
         x, y, z = cell_position
         for i in range(1, parameters.dendrite_length + 1):
-            for fragment_position in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i), (x, y, z + i)]:
+            for fragment_position in [(x + i, y, z), (x - i, y, z), (x, y + i, z), (x, y - i, z), (x, y, z - i),
+                                      (x, y, z + i)]:
                 # Do nothing if position is outside of GC
                 try:
                     if parameters.grid_id[fragment_position] is None:
@@ -1010,7 +1030,7 @@ def hyphasma(parameters):
                 outcells_to_remove.append(i)
                 parameters.available_cell_ids.append(cell_id)
         for i in sorted(outcells_to_remove, reverse=True):
-            del(parameters.list_outcells[i])
+            del (parameters.list_outcells[i])
 
         # Randomly iterate over Centroblast cells
         random.shuffle(parameters.list_cb)
@@ -1038,7 +1058,7 @@ def hyphasma(parameters):
             if parameters.state[cell_id] != CellState.cb_M:
                 move(cell_id, parameters)
         for i in sorted(centroblasts_to_remove, reverse=True):
-            del(parameters.list_cb[i])
+            del (parameters.list_cb[i])
 
         # Randomly iterated over Centrocyte cells.
         random.shuffle(parameters.list_cc)
@@ -1059,7 +1079,7 @@ def hyphasma(parameters):
                 move(cell_id, parameters)
         # Remove dead Centrocytes
         for i in sorted(centrocytes_to_remove, reverse=True):
-            del(parameters.list_cc[i])
+            del (parameters.list_cc[i])
 
         # Randomly iterate over T cells and move if not attached to another cell
         random.shuffle(parameters.list_tc)
@@ -1097,7 +1117,7 @@ def signal_secretion(cell_id, parameters):
         parameters.grid_cxcl13[tuple(cell_position)] += parameters.p_mk_cxcl13
 
 
-def diffuse_signal():
+def diffuse_signal(parameters):
     """
     How do we do this?
     We're going to make the CXCL12/13 concentrations follow an underlying
@@ -1118,7 +1138,46 @@ def diffuse_signal():
     """
     # TODO diffuse_signal function
 
-    pass
+    diff_cxcl12 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
+    diff_cxcl13 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
+
+    for i in range(parameters.n + 3):
+        for j in range(parameters.n + 3):
+            for k in range(parameters.n + 3):
+                amount_cxcl12 = parameters.grid_cxcl12[i,j,k]
+                amount_cxcl13 = parameters.grid_cxcl13[i,j,k]
+
+                diff_cxcl12[i,j,k] -= amount_cxcl12 * 2 / 5
+                diff_cxcl13[i,j,k] -= amount_cxcl13 * 2 / 5
+
+                # Movements towards dark side
+                neighbours = [(i+ii-1, j+jj-1, k+1) for ii in range(3) for jj in range(3)]
+                for neighbour in neighbours:
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 18
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 54
+
+                # Movements towards light side
+                neighbours = [(i + ii - 1, j + jj - 1, k - 1) for ii in range(3) for jj in range(3)]
+                for neighbour in neighbours:
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 54
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 18
+
+                # Without Z changing
+                neighbours = [(i + ii - 1, j + jj - 1, k + 1) for ii in range(3) for jj in range(3)]
+                neighbours.remove((i,j,k))
+                for neighbour in neighbours:
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 24
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 24
+
+    # Make changes:
+    parameters.grid_cxcl12 += diff_cxcl12
+    parameters.grid_cxcl13 += diff_cxcl13
+
+    # Set values outside of GC to zero
+    for (x, y, z), value in np.ndenumerate(parameters.grid_cxcl12):
+        if np.linalg.norm(np.array([x, y, z]) - np.array(parameters.offset)) > (parameters.n / 2):
+            parameters.grid_cxcl12[x, y, z] = 0
+            parameters.grid_cxcl13[x, y, z] = 0
 
 
 def k_off(bcr):
@@ -1129,7 +1188,7 @@ def k_off(bcr):
     """
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
     return parameters.k_on / (
-    10 ** (parameters.exp_min + math.exp(-(hamming_dist / 2.8) ** 2) * parameters.exp_max - parameters.exp_min))
+        10 ** (parameters.exp_min + math.exp(-(hamming_dist / 2.8) ** 2) * parameters.exp_max - parameters.exp_min))
 
 
 def p_mut(time):
@@ -1190,7 +1249,8 @@ def is_surface_point(position, grid_id):
 
     return False
 
-if __name__ == "__main__":  
+
+if __name__ == "__main__":
     parameters = Params()
     hyphasma(parameters)
     plt.plot(parameters.times, parameters.num_bcells)
