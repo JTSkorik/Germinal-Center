@@ -1008,6 +1008,9 @@ def hyphasma(parameters):
                     parameters.antigen_amount[fragment_id] -= d_ic
                     parameters.ic_amount[fragment_id] += d_ic
 
+        # Diffuse CXCL12/13
+        diffuse_signal(parameters)
+
         # Update the number of outcells and amount of antibody for each CR value.
         for bcr_seq in parameters.bcr_values_all:
             transfer_t = math.floor(
@@ -1136,14 +1139,14 @@ def diffuse_signal(parameters):
     Assume zero.
 
     """
-    # TODO diffuse_signal function
 
     diff_cxcl12 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
     diff_cxcl13 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
 
-    for i in range(parameters.n + 3):
-        for j in range(parameters.n + 3):
-            for k in range(parameters.n + 3):
+    # Iterate over all points except boundary of matrix which are not part of GC.
+    for i in range(1, parameters.n + 1):
+        for j in range(1, parameters.n + 1):
+            for k in range(1, parameters.n + 1):
                 amount_cxcl12 = parameters.grid_cxcl12[i,j,k]
                 amount_cxcl13 = parameters.grid_cxcl13[i,j,k]
 
@@ -1163,7 +1166,7 @@ def diffuse_signal(parameters):
                     diff_cxcl13[neighbour] += amount_cxcl13 / 18
 
                 # Without Z changing
-                neighbours = [(i + ii - 1, j + jj - 1, k + 1) for ii in range(3) for jj in range(3)]
+                neighbours = [(i + ii - 1, j + jj - 1, k) for ii in range(3) for jj in range(3)]
                 neighbours.remove((i,j,k))
                 for neighbour in neighbours:
                     diff_cxcl12[neighbour] += amount_cxcl12 / 24
