@@ -980,17 +980,19 @@ def hyphasma(parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    initialise_cells(parameters)
+    if parameters.save_counter == 0:
+        initialise_cells(parameters)
 
     while parameters.t <= parameters.tmax:
 
         # If 50 simulated hours have elapsed, save current state.
-        if parameters.t >= 0.01 * parameters.save_counter:
+        if parameters.t >= 0.01\
+                * parameters.save_counter:
             print("Saving current state")
-            parameters.save_counter += 1
             restart_data = open("Restart data/{:04d}.pickle".format(parameters.save_counter) , "wb")
             pickle.dump(parameters, restart_data)
             restart_data.close()
+            parameters.save_counter += 1
 
         print(parameters.t)
         # Track the number of B cells at each time step. (Used for Testing)
