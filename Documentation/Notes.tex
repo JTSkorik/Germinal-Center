@@ -23,14 +23,6 @@
 \textbf{Research Paper}: Robert, P., Rastogi, A., Binder, S. and Meyer-Hermann, M. (2017). How to Simulate a Germinal Center. Methods in Molecular Biology, pp.303-334.
 
 
-\section{Model Assumptions.}
-In this section, we highlight the assumptions made in the model we are following. This is primarily to refer to in future when making our own adjustments to the model. 
-\begin{itemize}
-\item Only one antigen per Germinal Center. 
-
-\end{itemize}
-
-
 \section{Implementation Ideas}
 
 Generate $N\times N\times N$ spatial grid to place discrete sphere with radius $N/2$ within. Find and store the valid spatial points within this grid. At each time step, record where the discrete grid spot is free or contains a cell. Use dictionary, return None if empty, otherwise cell ID? If we want to find the position of a cell, we would need to work the dictionary backwards, likely to be computationally slow. Could have two dictionaries - one that gives position from cell ID and another that gives Cell ID / None from position. Is this likely to cause update issues?
@@ -55,6 +47,7 @@ Can pass a cell object to a new function, edit it and not have to return the cel
 
 
 
+\newpage
 \section{Parameters for each Cell}
 
 \subsection{Stromal cell}
@@ -352,29 +345,5 @@ responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL
 
 \end{itemize}
 
-\section{Misc.}
-\subsection{Questions.}
-\begin{itemize}
-
-\item The description at the start shows that the cells stay in either the light or the dark zone. In the simulations, we define these as the lower and upper parts of the sphere.  Centroblasts can eventually become centrocytes, which reside in different parts. The algorithms don't force the cell to be in the right zone after converting. 
-
-
-\end{itemize}
-
-\subsection{To do list}
-
-\begin{itemize}
-
-\item Class parameters
-
-\item dictionaries
-
-\item replace grid dictionaries with numpy array
-
-\item watch video and read papers
-
-\item look at docstring/html
-
-\end{itemize}
 
 \end{document}

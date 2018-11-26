@@ -5,6 +5,7 @@ import numpy as np
 import itertools
 from enum import Enum
 import matplotlib.pyplot as plt
+import pickle
 
 
 # Enumerations for Cell Type and State comparisons
@@ -56,6 +57,9 @@ class Params():
     """
 
     def __init__(self):
+        # Counter used for saved data
+        self.save_counter = 0
+
         # Target Antigen
         self.antigen_value = 1234
 
@@ -980,6 +984,14 @@ def hyphasma(parameters):
 
     while parameters.t <= parameters.tmax:
 
+        # If 50 simulated hours have elapsed, save current state.
+        if parameters.t >= 0.01 * parameters.save_counter:
+            print("Saving current state")
+            parameters.save_counter += 1
+            restart_data = open("Restart data/{:04d}.pickle".format(parameters.save_counter) , "wb")
+            pickle.dump(parameters, restart_data)
+            restart_data.close()
+
         print(parameters.t)
         # Track the number of B cells at each time step. (Used for Testing)
         parameters.num_bcells.append(len(parameters.list_cc) + len(parameters.list_cb))
@@ -1004,7 +1016,7 @@ def hyphasma(parameters):
                 for bcr_seq in parameters.bcr_values_all:
                     d_ic = parameters.dt * (
                         parameters.k_on * parameters.antigen_amount[fragment_id] * parameters.antibody_per_bcr[
-                            bcr_seq] - k_off(bcr_seq) * parameters.ic_amount[fragment_id])
+                            bcr_seq] - k_off(bcr_seq, parameters) * parameters.ic_amount[fragment_id])
                     parameters.antigen_amount[fragment_id] -= d_ic
                     parameters.ic_amount[fragment_id] += d_ic
 
@@ -1183,7 +1195,7 @@ def diffuse_signal(parameters):
             parameters.grid_cxcl13[x, y, z] = 0
 
 
-def k_off(bcr):
+def k_off(bcr, parameters):
     """
     Calculates the value of k_off for a given BCR value.
     :param bcr: 4-digit integer, BCR value for a cell.

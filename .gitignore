@@ -480,6 +480,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Ignore pickles
+*.pkl
+**/*.pkl
+
 
 # End of https://www.gitignore.io/api/latex,macos,python,windows,pycharm,jupyternotebook
 /Source/.idea
