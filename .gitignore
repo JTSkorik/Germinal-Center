@@ -483,7 +483,8 @@ $RECYCLE.BIN/
 # Ignore pickles
 *.pkl
 **/*.pkl
-
+*.pickle
+**/*.pickle
 
 # End of https://www.gitignore.io/api/latex,macos,python,windows,pycharm,jupyternotebook
 /Source/.idea
