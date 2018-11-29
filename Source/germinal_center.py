@@ -1049,8 +1049,7 @@ def hyphasma(parameters):
         # Randomly iterate of outcells and move, remove if on surface of GC
         random.shuffle(parameters.list_outcells)
         outcells_to_remove = []
-        for i in range(len(parameters.list_outcells)):
-            cell_id = parameters.list_outcells[i]
+        for i, cell_id in enumerate(parameters.list_outcells):
             move(cell_id, parameters)
             cell_position = parameters.position[cell_id]
             if is_surface_point(cell_position, parameters.grid_id):
@@ -1062,8 +1061,7 @@ def hyphasma(parameters):
         # Randomly iterate over Centroblast cells
         random.shuffle(parameters.list_cb)
         centroblasts_to_remove = []
-        for i in range(len(parameters.list_cb)):
-            cell_id = parameters.list_cb[i]
+        for i, cell_id in enumerate(parameters.list_cb):
             # Update cell properties
             update_chemokines_receptors(cell_id, parameters)
             progress_cycle(cell_id, parameters)
@@ -1090,8 +1088,7 @@ def hyphasma(parameters):
         # Randomly iterated over Centrocyte cells.
         random.shuffle(parameters.list_cc)
         centrocytes_to_remove = []
-        for i in range(len(parameters.list_cc)):
-            cell_id = parameters.list_cc[i]
+        for i, cell_id in enumerate(parameters.list_cc):
             # Update cell progress
             update_chemokines_receptors(cell_id, parameters)
             progress_fdc_selection(cell_id, parameters)
@@ -1224,7 +1221,7 @@ def p_mut(time):
     :param time: float, current time step of simulation.
     :return: float, probability of mutation.
     """
-    if time > 24:
+    if time > 1:
         return 0.5
     else:
         return 0.0
