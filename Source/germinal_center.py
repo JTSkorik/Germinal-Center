@@ -65,11 +65,14 @@ class Params():
 
         # Distance Variables:
         self.n = 16  # Diameter of sphere/GC
-        self.all_points = [(x + self.n // 2 + 1, y + self.n // 2 + 1, z + self.n // 2 + 1) for x in
-                           range(-self.n // 2, self.n // 2) for y in
-                           range(-self.n // 2, self.n // 2)
-                           for z in range(-self.n // 2, self.n // 2) if
-                           ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (self.n // 2) ** 2]
+
+        # Generate list of all possible points in GC
+        self.all_points = []
+        for x in range(-self.n // 2, self.n // 2):
+            for y in range(-self.n // 2, self.n // 2):
+                for z in range(-self.n // 2, self.n // 2):
+                    if ((x + 0.5) ** 2 + (y + 0.5) ** 2 + (z + 0.5) ** 2) <= (self.n // 2) ** 2:
+                        self.all_points.append((x + self.n // 2 + 1, y + self.n // 2 + 1, z + self.n // 2 + 1))
 
         self.dark_zone = [point for point in self.all_points if point[2] > self.n // 2]
         self.light_zone = [point for point in self.all_points if point[2] <= self.n // 2]
@@ -124,10 +127,10 @@ class Params():
         self.grid_cxcl13 = np.zeros([self.n + 2, self.n + 2, self.n + 2])
 
         # Lower and upper bounds for each end of the GC.
-        lower_cxcl12 = 80e-11
-        upper_cxcl12 = 80e-10
-        lower_cxcl13 = 0.1e-10
-        upper_cxcl13 = 0.1e-9
+        lower_cxcl12 = 80e-13
+        upper_cxcl12 = 80e-7
+        lower_cxcl13 = 0.1e-13
+        upper_cxcl13 = 0.1e-6
 
         spread_cxcl12 = np.linspace(lower_cxcl12, upper_cxcl12, self.n)
         spread_cxcl13 = np.linspace(lower_cxcl13, upper_cxcl13, self.n)
@@ -193,7 +196,7 @@ class Params():
         self.prob_mut_affinity_exponent = 1.0
 
         # Differentiation Rates
-        self.start_differentiation = 72.0
+        self.start_differentiation = 10.0
         self.prob_dif = self.dt * 0.1
         self.delete_ag_in_fresh_cc = True
         self.dif_delay = 6.0
@@ -393,7 +396,7 @@ def move(cell_id, parameters):
     # Calculate new polarity
     if random.uniform(0, 1) < prob:
         # Obtain turning angles
-        phi = random.gauss(0, math.pi/4)
+        phi = random.gauss(0, math.pi / 4)
         turn_angle(cell_id, phi, parameters)
 
     # Find CXCL13 influence
@@ -431,17 +434,23 @@ def move(cell_id, parameters):
     p_difu = speed * parameters.dt / parameters.dx
 
     if random.uniform(0, 1) < p_difu:
-        # Find possible new positions based on order of best preference
+        # Find all neighbouring positions
+        neighbouring_positions = []
+        for movement in parameters.possible_neighbours:
+            neighbouring_positions.append(np.array(movement) + np.array(cell_position))
+
+        # Find the position wanted based on cells polarity
         wanted_position = np.array(cell_position) + parameters.polarity[cell_id]
-        neighbours = [np.array(movement) + np.array(cell_position) for movement in parameters.possible_neighbours if
-                      parameters.grid_id[tuple(np.array(movement) + np.array(cell_position))] != -1]
-        neighbours.sort(key=lambda possible_position: np.linalg.norm(possible_position - wanted_position))
+
+        # Sort all possible neighbouring positions based on preference compared to wanted position
+        neighbouring_positions.sort(key=lambda possible_position: np.linalg.norm(possible_position - wanted_position))
 
         # Move the cell to best available position that isn't against direction of polarity
+        # We ensure it isn't against polarity by restricting movement to the 9 best positions
         count = 0
         moved = False
         while not moved and count <= 9:
-            new_cell_position = tuple(neighbours[count])
+            new_cell_position = tuple(neighbouring_positions[count])
             if parameters.grid_id[new_cell_position] is None:
                 parameters.position[cell_id] = new_cell_position
 
@@ -496,7 +505,7 @@ def initiate_cycle(cell_id, parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    if parameters.num_divisions_to_do == 0:
+    if parameters.num_divisions_to_do[cell_id] == 0:
         parameters.state[cell_id] = CellState.stop_dividing
     else:
         parameters.state[cell_id] = CellState.cb_G1
@@ -527,10 +536,10 @@ def progress_cycle(cell_id, parameters):
         elif cell_state == CellState.cb_M:
             parameters.state[cell_id] = CellState.cb_divide
 
-            # Find time until next end of new state and reset cycle start time
-            if parameters.state[cell_id] not in [CellState.cb_divide, CellState.stop_dividing]:
-                parameters.end_of_this_phase[cell_id] = get_duration(parameters.state[cell_id])
-                parameters.cycle_start_time[cell_id] = 0
+        # Find time until next end of new state and reset cycle start time
+        if parameters.state[cell_id] not in [CellState.cb_divide, CellState.stop_dividing]:
+            parameters.end_of_this_phase[cell_id] = get_duration(parameters.state[cell_id])
+            parameters.cycle_start_time[cell_id] = 0
 
 
 def divide_and_mutate(cell_id, parameters):
@@ -544,13 +553,13 @@ def divide_and_mutate(cell_id, parameters):
 
     if random.uniform(0, 1) < parameters.prob_now:
         old_cell_pos = parameters.position[cell_id]
+
         # Find empty positions around cell
-        empty_neighbours = [tuple(np.array(old_cell_pos) + np.array(possible_neighbour)) for possible_neighbour in
-                            parameters.possible_neighbours if
-                            np.linalg.norm(
-                                np.asarray(possible_neighbour) + np.asarray(old_cell_pos) - np.array(
-                                    parameters.offset)) <= (parameters.n / 2) and
-                            old_cell_pos[2] + possible_neighbour[2] > parameters.n / 2]
+        empty_neighbours = []
+        for possible_neighbour in parameters.possible_neighbours:
+            neighbour = tuple(np.array(old_cell_pos) + np.array(possible_neighbour))
+            if parameters.grid_id[neighbour] is None:
+                empty_neighbours.append(neighbour)
 
         if empty_neighbours:
             new_cell_pos = random.choice(empty_neighbours)
@@ -567,7 +576,7 @@ def divide_and_mutate(cell_id, parameters):
             parameters.responsive_to_cxcl12[new_cell_id] = True
             parameters.responsive_to_cxcl13[new_cell_id] = False
             parameters.num_divisions_to_do[new_cell_id] = parameters.num_divisions_to_do[cell_id] - 1
-            parameters.p_mutation[new_cell_id] = parameters.p_mutation[new_cell_id]
+            parameters.p_mutation[new_cell_id] = parameters.p_mutation[cell_id]
             parameters.i_am_high_ag[new_cell_id] = False
             parameters.retained_ag[new_cell_id] = None
             parameters.cycle_start_time[new_cell_id] = None
@@ -579,7 +588,7 @@ def divide_and_mutate(cell_id, parameters):
 
             # Update grid parameters
             parameters.grid_id[new_cell_pos] = new_cell_id
-            parameters.grid_type[new_cell_id] = CellType.Centroblast
+            parameters.grid_type[new_cell_pos] = CellType.Centroblast
 
             # Initiate cycles for each cell
             initiate_cycle(cell_id, parameters)
@@ -738,7 +747,7 @@ def liberate_tcell(bcell_id, tcell_id, parameters):
     Updates the states of given b and t cells to record that they are no longer touching/
     interacting.
     :param bcell_id: integer, determines which b cell in the population we are considering.
-    :param tcell_id: interger, determines which t cell in the population we are considering.
+    :param tcell_id: integer, determines which t cell in the population we are considering.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
@@ -755,7 +764,7 @@ def differ_to_out(cell_id, parameters):
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:
     """
-    parameters.list_outells.append(cell_id)
+    parameters.list_outcells.append(cell_id)
     parameters.num_bcr_outcells[parameters.bcr[cell_id]] += 1
 
     # Update cell and grid properties
@@ -790,9 +799,10 @@ def differ_to_cb(cell_id, parameters):
 
     # Find number of divisions remaining
     ag_factor = parameters.num_fdc_contacts[cell_id] ** parameters.p_mhc_dep_nhill
-    parameters.num_divisions_to_do[cell_id] = parameters.p_mhc_dep_min + (
-                                                                             parameters.p_mhc_dep_max - parameters.p_mhc_dep_min) * ag_factor / (
-                                                                             ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill)
+    # Taking floor to ensure its an integer amount
+    parameters.num_divisions_to_do[cell_id] = math.floor(parameters.p_mhc_dep_min + (
+        parameters.p_mhc_dep_max - parameters.p_mhc_dep_min) * ag_factor / (
+                                                             ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
 
     # Find new probability of mutation
     parameters.p_mutation[cell_id] = p_mut(parameters.t) + parameters.prob_mut_after_selection - p_mut(
@@ -924,7 +934,6 @@ def initialise_cells(parameters):
 
         # Add to appropriate lists and dictionaries
         parameters.list_cb.append(cell_id)
-        print(parameters.list_cb)
 
         polarity_vector = np.random.standard_normal(3)
         polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
@@ -957,7 +966,7 @@ def initialise_cells(parameters):
         cell_id = parameters.available_cell_ids.pop()
 
         # Add to appropriate lists and dictionaries
-        parameters.list_outcells.append(cell_id)
+        parameters.list_tc.append(cell_id)
 
         polarity_vector = np.random.standard_normal(3)
         polarity_vector = polarity_vector / np.linalg.norm(polarity_vector)
@@ -985,11 +994,11 @@ def hyphasma(parameters):
 
     while parameters.t <= parameters.tmax:
 
-        # If 50 simulated hours have elapsed, save current state.
-        if parameters.t >= 0.01\
+        # If 1 simulated hour has elapsed, save current state.
+        if parameters.t >= 1 \
                 * parameters.save_counter:
             print("Saving current state")
-            restart_data = open("Restart data/{:04d}.pickle".format(parameters.save_counter) , "wb")
+            restart_data = open("Restart data/{:04d}.pickle".format(parameters.save_counter), "wb")
             pickle.dump(parameters, restart_data)
             restart_data.close()
             parameters.save_counter += 1
@@ -1001,6 +1010,7 @@ def hyphasma(parameters):
             print("Number B Cells: {}".format(parameters.num_bcells[-1]))
             print("Number Centroblasts: {}".format(len(parameters.list_cb)))
             print("Number Centrocytes: {}".format(len(parameters.list_cc)))
+            print("Number Outcells: {}".format(len(parameters.list_outcells)))
         parameters.times.append(parameters.t)
 
         # Secrete CXCL12 from Stromal cells
@@ -1059,7 +1069,7 @@ def hyphasma(parameters):
             progress_cycle(cell_id, parameters)
 
             # Attempt to divide if ready
-            if parameters.state[cell_id] == CellState.stop_dividing:
+            if parameters.state[cell_id] == CellState.cb_divide:
                 divide_and_mutate(cell_id, parameters)
 
             if parameters.state[cell_id] == CellState.stop_dividing:
@@ -1092,7 +1102,7 @@ def hyphasma(parameters):
                 centrocytes_to_remove.append(i)
                 parameters.available_cell_ids.append(cell_id)
             # Else move possible cells
-            elif parameters.state[cell_id] not in [CellState.FDCcontact, CellState.TCcontact]:
+            elif parameters.state[cell_id] not in [CellState.FDCcontact, CellState.TCcontact, CellState.Apoptosis]:
                 move(cell_id, parameters)
         # Remove dead Centrocytes
         for i in sorted(centrocytes_to_remove, reverse=True):
@@ -1161,14 +1171,14 @@ def diffuse_signal(parameters):
     for i in range(1, parameters.n + 1):
         for j in range(1, parameters.n + 1):
             for k in range(1, parameters.n + 1):
-                amount_cxcl12 = parameters.grid_cxcl12[i,j,k]
-                amount_cxcl13 = parameters.grid_cxcl13[i,j,k]
+                amount_cxcl12 = parameters.grid_cxcl12[i, j, k]
+                amount_cxcl13 = parameters.grid_cxcl13[i, j, k]
 
-                diff_cxcl12[i,j,k] -= amount_cxcl12 * 2 / 5
-                diff_cxcl13[i,j,k] -= amount_cxcl13 * 2 / 5
+                diff_cxcl12[i, j, k] -= amount_cxcl12 * 2 / 5
+                diff_cxcl13[i, j, k] -= amount_cxcl13 * 2 / 5
 
                 # Movements towards dark side
-                neighbours = [(i+ii-1, j+jj-1, k+1) for ii in range(3) for jj in range(3)]
+                neighbours = [(i + ii - 1, j + jj - 1, k + 1) for ii in range(3) for jj in range(3)]
                 for neighbour in neighbours:
                     diff_cxcl12[neighbour] += amount_cxcl12 / 18
                     diff_cxcl13[neighbour] += amount_cxcl13 / 54
@@ -1181,7 +1191,7 @@ def diffuse_signal(parameters):
 
                 # Without Z changing
                 neighbours = [(i + ii - 1, j + jj - 1, k) for ii in range(3) for jj in range(3)]
-                neighbours.remove((i,j,k))
+                neighbours.remove((i, j, k))
                 for neighbour in neighbours:
                     diff_cxcl12[neighbour] += amount_cxcl12 / 24
                     diff_cxcl13[neighbour] += amount_cxcl13 / 24
