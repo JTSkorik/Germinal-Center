@@ -6,6 +6,7 @@ import itertools
 from enum import Enum
 import matplotlib.pyplot as plt
 import pickle
+import json
 
 
 # Enumerations for Cell Type and State comparisons
@@ -1283,9 +1284,107 @@ def is_surface_point(position, grid_id):
     return False
 
 
+def params_to_dict(params_instance):
+    """
+    Converts Params object into a dictionary where the name of each
+    variable is the key for its value.
+    :param params_instance: Params object
+    :return ans: dictionary, all values of parameters as a dictionary with
+    """
+    ans = dict()
+    ans["ab_prod_factor"] = params_instance.ab_prod_factor
+    ans["all_points"] = params_instance.all_points
+    ans["antibodies_production"] = params_instance.antibodies_production
+    ans["antibody_degradation"] = params_instance.antibody_degradation
+    ans["antigen_saturation"] = params_instance.antigen_saturation
+    ans["antigen_value"] = params_instance.antigen_value
+    ans["bcr_values_initial"] = params_instance.bcr_values_initial
+    ans["chemo_half"] = params_instance.chemo_half
+    ans["chemo_max"] = params_instance.chemo_max
+    ans["chemo_steep"] = params_instance.chemo_steep
+    ans["collect_fdc_period"] = params_instance.collect_fdc_period
+    ans["cxcl12_crit"] = params_instance.cxcl12_crit
+    ans["cxcl12_recrit"] = params_instance.cxcl12_recrit
+    ans["cxcl13_crit"] = params_instance.cxcl13_crit
+    ans["cxcl13_diff_rate"] = params_instance.cxcl13_diff_rate
+    ans["cxcl13_recrit"] = params_instance.cxcl13_recrit
+    ans["dark_zone"] = params_instance.dark_zone
+    ans["delete_ag_in_fresh_cc"] = params_instance.delete_ag_in_fresh_cc
+    ans["dendrite_length"] = params_instance.dendrite_length
+    ans["dif_delay"] = params_instance.dif_delay
+    ans["dt"] = params_instance.dt
+    ans["dx"] = params_instance.dx
+    ans["exp_max"] = params_instance.exp_max
+    ans["exp_min"] = params_instance.exp_min
+    ans["initial_antigen_amount_per_fdc"] = params_instance.initial_antigen_amount_per_fdc
+    ans["initial_num_fdc"] = params_instance.initial_num_fdc
+    ans["initial_num_seeder"] = params_instance.initial_num_seeder
+    ans["initial_num_stromal_cells"] = params_instance.initial_num_stromal_cells
+    ans["initial_num_tcells"] = params_instance.initial_num_tcells
+    ans["k_on"] = params_instance.k_on
+    ans["light_zone"] = params_instance.light_zone
+    ans["mutation_start_time"] = params_instance.mutation_start_time
+    ans["n"] = params_instance.n
+    ans["n_gc"] = params_instance.n_gc
+    ans["north_weight"] = params_instance.north_weight
+    ans["num_div_initial_cells"] = params_instance.num_div_initial_cells
+    ans["offset"] = params_instance.offset
+    ans["p_mhc_dep_max"] = params_instance.p_mhc_dep_max
+    ans["p_mhc_dep_min"] = params_instance.p_mhc_dep_min
+    ans["p_mhc_dep_nhill"] = params_instance.p_mhc_dep_nhill
+    ans["p_mhc_depk"] = params_instance.p_mhc_depk
+    ans["p_mk_cxcl12"] = params_instance.p_mk_cxcl12
+    ans["p_mk_cxcl13"] = params_instance.p_mk_cxcl13
+    ans["p_sel"] = params_instance.p_sel
+    ans["plt_centroblast"] = params_instance.plt_centroblast
+    ans["plt_centrocyte"] = params_instance.plt_centrocyte
+    ans["plt_outcell"] = params_instance.plt_outcell
+    ans["plt_tcell"] = params_instance.plt_tcell
+    ans["pm_differentiation_rate"] = params_instance.pm_differentiation_rate
+    ans["polarity_index"] = params_instance.polarity_index
+    ans["possible_neighbours"] = params_instance.possible_neighbours
+    ans["prob_dif"] = params_instance.prob_dif
+    ans["prob_dif_to_out"] = params_instance.prob_dif_to_out
+    ans["prob_divide_ag_asymmetric"] = params_instance.prob_divide_ag_asymmetric
+    ans["prob_mut_affinity_exponent"] = params_instance.prob_mut_affinity_exponent
+    ans["prob_mut_after_selection"] = params_instance.prob_mut_after_selection
+    ans["prob_now"] = params_instance.prob_now
+    ans["speed_centroblast"] = params_instance.speed_centroblast
+    ans["speed_centrocyte"] = params_instance.speed_centrocyte
+    ans["speed_outcell"] = params_instance.speed_outcell
+    ans["speed_tcell"] = params_instance.speed_tcell
+    ans["start_differentiation"] = params_instance.start_differentiation
+    ans["t"] = params_instance.t
+    ans["tc_rescue_time"] = params_instance.tc_rescue_time
+    ans["tc_time"] = params_instance.tc_time
+    ans["test_delay"] = params_instance.test_delay
+    ans["tmax"] = params_instance.tmax
+    ans["tmin"] = params_instance.tmin
+    ans["v_blood"] = params_instance.v_blood
+
+    # Convert "north" from numpy array to tuple
+    ans["north"] = params_instance.north.tolist()
+    return ans
+
+def dict_to_json(directory, dictionary):
+    """
+    Converts dictionary object to json file and saves.
+    :param dictionary: dict, the dictionary we intended on saving
+    :param directory: str, directory to save file at
+    """
+
+    with open(directory + ".json", 'w') as fp:
+        json.dump(dictionary, fp, sort_keys=True)
+
+
 if __name__ == "__main__":
     parameters = Params()
+    parameters_dict = params_to_dict(parameters)
+    print(parameters_dict)
+    dict_to_json("test", parameters_dict)
     output = Out(parameters)
+    """
     hyphasma(parameters, output)
     plt.plot(output.times, output.num_bcells)
     plt.show()
+    """
