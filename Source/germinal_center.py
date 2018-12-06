@@ -7,6 +7,7 @@ from enum import Enum
 import matplotlib.pyplot as plt
 import pickle
 import json
+import csv
 
 
 # Enumerations for Cell Type and State comparisons
@@ -175,11 +176,11 @@ class Params():
         self.possible_neighbours.remove((0, 0, 0))
 
 
-
 class Out():
     """
     Class to store all output of the simulation.
     """
+
     def __init__(self, parameters):
         # Counter used for saved data
         self.save_counter = 0
@@ -812,7 +813,7 @@ def differ_to_cb(cell_id, parameters, output):
     # Taking floor to ensure its an integer amount
     output.num_divisions_to_do[cell_id] = math.floor(parameters.p_mhc_dep_min + (
         parameters.p_mhc_dep_max - parameters.p_mhc_dep_min) * ag_factor / (
-                                                             ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
+                                                         ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
 
     # Find new probability of mutation
     output.p_mutation[cell_id] = p_mut(parameters.t) + parameters.prob_mut_after_selection - p_mut(
@@ -1052,9 +1053,9 @@ def hyphasma(parameters, output):
             output.num_bcr_outcells[bcr_seq] -= transfer_t
             output.num_bcr_outcells_produce[bcr_seq] += transfer_t
             output.antibody_per_bcr[bcr_seq] = output.num_bcr_outcells_produce[
-                                                       bcr_seq] * parameters.ab_prod_factor - parameters.antibody_degradation * \
-                                                                                              output.antibody_per_bcr[
-                                                                                                  bcr_seq]
+                                                   bcr_seq] * parameters.ab_prod_factor - parameters.antibody_degradation * \
+                                                                                          output.antibody_per_bcr[
+                                                                                              bcr_seq]
 
         # Randomly iterate of outcells and move, remove if on surface of GC
         random.shuffle(output.list_outcells)
@@ -1366,25 +1367,97 @@ def params_to_dict(params_instance):
     ans["north"] = params_instance.north.tolist()
     return ans
 
-def dict_to_json(directory, dictionary):
+
+def dict_to_json( dictionary, filename="parameters"):
     """
     Converts dictionary object to json file and saves.
     :param dictionary: dict, the dictionary we intended on saving
-    :param directory: str, directory to save file at
+    :param filename: str, directory to save file at
     """
 
-    with open(directory + ".json", 'w') as fp:
+    with open(filename + ".json", 'w') as fp:
         json.dump(dictionary, fp, sort_keys=True)
+
+
+def json_to_dict(filename="parameters"):
+    pass
+
+
+def start_out_csv(filename="output"):
+    """
+    Creates csv file to store output. Writes the variable name for each column.
+    :param filename: str, filename location for csv file.
+    :return:
+    """
+    variable_names = ["antibody_per_bcr",
+                      "antigen_amount",
+                      "available_cell_ids",
+                      "bcell_contacts",
+                      "bcr",
+                      "bcr_values_all",
+                      "clock",
+                      "cycle_start_time",
+                      "end_of_this_phase",
+                      "frag_contact",
+                      "fragments",
+                      "grid_cxcl12",
+                      "grid_cxcl13",
+                      "grid_id",
+                      "grid_type",
+                      "i_am_high_ag",
+                      "ic_amount",
+                      "individual_dif_delay",
+                      "list_cb",
+                      "list_cc",
+                      "list_fdc",
+                      "list_outcells",
+                      "list_stromal",
+                      "list_tc",
+                      "num_bcells",
+                      "num_bcr_outcells",
+                      "num_bcr_outcells_produce",
+                      "num_divisions_to_do",
+                      "num_fdc_contacts",
+                      "p_mutation",
+                      "parent",
+                      "polarity",
+                      "position",
+                      "responsive_to_cxcl12",
+                      "responsive_to_cxcl13",
+                      "retained_ag",
+                      "save_counter",
+                      "selectable",
+                      "selected_clock",
+                      "state",
+                      "tc_clock",
+                      "tc_signal_duration",
+                      "tcell_contact",
+                      "times",
+                      "type"]
+
+    with open(filename + ".csv", "w") as output_file:
+        output_writer = csv.writer(output_file)
+        output_writer.writerow(variable_names)
+
+
+
+def out_to_csv( out_instance, filename = "output"):
+    current_output = []
+
+    with open(filename + ".csv", "w") as output_file:
+        output_writer = csv.writer(output_file)
+        output_writer.writerow(current_output)
+
+
+def csv_to_out(filename):  # ?
+    pass
 
 
 if __name__ == "__main__":
     parameters = Params()
-    parameters_dict = params_to_dict(parameters)
-    print(parameters_dict)
-    dict_to_json("test", parameters_dict)
     output = Out(parameters)
-    """
+    start_out_csv()
+
     hyphasma(parameters, output)
     plt.plot(output.times, output.num_bcells)
     plt.show()
-    """
