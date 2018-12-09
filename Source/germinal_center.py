@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pickle
 import json
 import csv
+import os
 
 
 # Enumerations for Cell Type and State comparisons
@@ -83,7 +84,6 @@ class Params():
 
         # Time Variables:
         self.dt = 0.002
-        self.t = 0.0
         self.tmin = 0.0
         self.tmax = 30.0
 
@@ -182,6 +182,8 @@ class Out():
     """
 
     def __init__(self, parameters):
+        self.t = 0.0  # Simulation time
+
         # Counter used for saved data
         self.save_counter = 0
 
@@ -606,7 +608,7 @@ def divide_and_mutate(cell_id, parameters, output):
             initiate_cycle(new_cell_id, parameters, output)
 
             # Mutate cells
-            if parameters.t > parameters.mutation_start_time:
+            if output.t > parameters.mutation_start_time:
                 mutate(cell_id, parameters, output)
                 mutate(new_cell_id, parameters, output)
 
@@ -816,8 +818,8 @@ def differ_to_cb(cell_id, parameters, output):
                                                          ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
 
     # Find new probability of mutation
-    output.p_mutation[cell_id] = p_mut(parameters.t) + parameters.prob_mut_after_selection - p_mut(
-        parameters.t) * affinity(output.bcr[cell_id]) ** parameters.prob_mut_affinity_exponent
+    output.p_mutation[cell_id] = p_mut(output.t) + parameters.prob_mut_after_selection - p_mut(
+        output.t) * affinity(output.bcr[cell_id]) ** parameters.prob_mut_affinity_exponent
 
     # Initiate cell
     initiate_chemokine_receptors(cell_id, parameters, output)
@@ -957,7 +959,7 @@ def initialise_cells(parameters, output):
         output.responsive_to_cxcl12[cell_id] = None
         output.responsive_to_cxcl13[cell_id] = None
         output.num_divisions_to_do[cell_id] = parameters.num_div_initial_cells
-        output.p_mutation[cell_id] = p_mut(parameters.t)
+        output.p_mutation[cell_id] = p_mut(output.t)
         output.i_am_high_ag[cell_id] = False
         output.retained_ag[cell_id] = 0.0
         output.cycle_start_time[cell_id] = None
@@ -1003,18 +1005,17 @@ def hyphasma(parameters, output):
     if output.save_counter == 0:
         initialise_cells(parameters, output)
 
-    while parameters.t <= parameters.tmax:
+    while output.t <= parameters.tmax:
 
         # If 1 simulated hour has elapsed, save current state.
-        if parameters.t >= 1 \
+        if output.t >= 1 \
                 * output.save_counter:
             print("Saving current state")
-            restart_data = open("Restart data/{:04d}.pickle".format(output.save_counter), "wb")
-            pickle.dump(parameters, restart_data)
-            restart_data.close()
+            pickle_current_state(output)
+
             output.save_counter += 1
 
-        print(parameters.t)
+        print(output.t)
         # Track the number of B cells at each time step. (Used for Testing)
         output.num_bcells.append(len(output.list_cc) + len(output.list_cb))
         if output.num_bcells[-1] > 3:
@@ -1022,7 +1023,7 @@ def hyphasma(parameters, output):
             print("Number Centroblasts: {}".format(len(output.list_cb)))
             print("Number Centrocytes: {}".format(len(output.list_cc)))
             print("Number Outcells: {}".format(len(output.list_outcells)))
-        output.times.append(parameters.t)
+        output.times.append(output.t)
 
         # Secrete CXCL12 from Stromal cells
         for cell_id in output.list_stromal:
@@ -1122,7 +1123,7 @@ def hyphasma(parameters, output):
             if output.state[cell_id] == CellState.TCnormal:
                 move(cell_id, parameters, output)
 
-        parameters.t += parameters.dt
+        output.t += parameters.dt
 
 
 # Helper functions
@@ -1355,7 +1356,6 @@ def params_to_dict(params_instance):
     ans["speed_outcell"] = params_instance.speed_outcell
     ans["speed_tcell"] = params_instance.speed_tcell
     ans["start_differentiation"] = params_instance.start_differentiation
-    ans["t"] = params_instance.t
     ans["tc_rescue_time"] = params_instance.tc_rescue_time
     ans["tc_time"] = params_instance.tc_time
     ans["test_delay"] = params_instance.test_delay
@@ -1368,7 +1368,7 @@ def params_to_dict(params_instance):
     return ans
 
 
-def dict_to_json( dictionary, filename="parameters"):
+def dict_to_json(dictionary, filename="parameters"):
     """
     Converts dictionary object to json file and saves.
     :param dictionary: dict, the dictionary we intended on saving
@@ -1379,82 +1379,150 @@ def dict_to_json( dictionary, filename="parameters"):
         json.dump(dictionary, fp, sort_keys=True)
 
 
-def json_to_dict(filename="parameters"):
-    pass
+def json_to_params(parameters, filename="parameters"):
+    """
+    Modifies a Params object to contain the exact parameters
+    wanted for current simulation.
+    :param parameters: Params object, parameters to be over written
+    :param filename: str, directory of saved json file containing parameters
+    :return:
+    """
+    # Open json file
+    with open(filename + ".json") as fp:
+        params_dict = json.load(fp)
+
+    # Modify current parameters object to be wanted values
+    parameters.ab_prod_factor = params_dict["ab_prod_factor"]
+    parameters.all_points = params_dict["all_points"]
+    parameters.antibodies_production = params_dict["antibodies_production"]
+    parameters.antibody_degradation = params_dict["antibody_degradation"]
+    parameters.antigen_saturation = params_dict["antigen_saturation"]
+    parameters.antigen_value = params_dict["antigen_value"]
+    parameters.bcr_values_initial = params_dict["bcr_values_initial"]
+    parameters.chemo_half = params_dict["chemo_half"]
+    parameters.chemo_max = params_dict["chemo_max"]
+    parameters.chemo_steep = params_dict["chemo_steep"]
+    parameters.collect_fdc_period = params_dict["collect_fdc_period"]
+    parameters.cxcl12_crit = params_dict["cxcl12_crit"]
+    parameters.cxcl12_recrit = params_dict["cxcl12_recrit"]
+    parameters.cxcl13_crit = params_dict["cxcl13_crit"]
+    parameters.cxcl13_diff_rate = params_dict["cxcl13_diff_rate"]
+    parameters.cxcl13_recrit = params_dict["cxcl13_recrit"]
+    parameters.dark_zone = params_dict["dark_zone"]
+    parameters.delete_ag_in_fresh_cc = params_dict["delete_ag_in_fresh_cc"]
+    parameters.dendrite_length = params_dict["dendrite_length"]
+    parameters.dif_delay = params_dict["dif_delay"]
+    parameters.dt = params_dict["dt"]
+    parameters.dx = params_dict["dx"]
+    parameters.exp_max = params_dict["exp_max"]
+    parameters.exp_min = params_dict["exp_min"]
+    parameters.initial_antigen_amount_per_fdc = params_dict["initial_antigen_amount_per_fdc"]
+    parameters.initial_num_fdc = params_dict["initial_num_fdc"]
+    parameters.initial_num_seeder = params_dict["initial_num_seeder"]
+    parameters.initial_num_stromal_cells = params_dict["initial_num_stromal_cells"]
+    parameters.initial_num_tcells = params_dict["initial_num_tcells"]
+    parameters.k_on = params_dict["k_on"]
+    parameters.light_zone = params_dict["light_zone"]
+    parameters.mutation_start_time = params_dict["mutation_start_time"]
+    parameters.n = params_dict["n"]
+    parameters.n_gc = params_dict["n_gc"]
+    parameters.north_weight = params_dict["north_weight"]
+    parameters.num_div_initial_cells = params_dict["num_div_initial_cells"]
+    parameters.offset = params_dict["offset"]
+    parameters.p_mhc_dep_max = params_dict["p_mhc_dep_max"]
+    parameters.p_mhc_dep_min = params_dict["p_mhc_dep_min"]
+    parameters.p_mhc_dep_nhill = params_dict["p_mhc_dep_nhill"]
+    parameters.p_mhc_depk = params_dict["p_mhc_depk"]
+    parameters.p_mk_cxcl12 = params_dict["p_mk_cxcl12"]
+    parameters.p_mk_cxcl13 = params_dict["p_mk_cxcl13"]
+    parameters.p_sel = params_dict["p_sel"]
+    parameters.plt_centroblast = params_dict["plt_centroblast"]
+    parameters.plt_centrocyte = params_dict["plt_centrocyte"]
+    parameters.plt_outcell = params_dict["plt_outcell"]
+    parameters.plt_tcell = params_dict["plt_tcell"]
+    parameters.pm_differentiation_rate = params_dict["pm_differentiation_rate"]
+    parameters.polarity_index = params_dict["polarity_index"]
+    parameters.possible_neighbours = params_dict["possible_neighbours"]
+    parameters.prob_dif = params_dict["prob_dif"]
+    parameters.prob_dif_to_out = params_dict["prob_dif_to_out"]
+    parameters.prob_divide_ag_asymmetric = params_dict["prob_divide_ag_asymmetric"]
+    parameters.prob_mut_affinity_exponent = params_dict["prob_mut_affinity_exponent"]
+    parameters.prob_mut_after_selection = params_dict["prob_mut_after_selection"]
+    parameters.prob_now = params_dict["prob_now"]
+    parameters.speed_centroblast = params_dict["speed_centroblast"]
+    parameters.speed_centrocyte = params_dict["speed_centrocyte"]
+    parameters.speed_outcell = params_dict["speed_outcell"]
+    parameters.speed_tcell = params_dict["speed_tcell"]
+    parameters.start_differentiation = params_dict["start_differentiation"]
+    parameters.tc_rescue_time = params_dict["tc_rescue_time"]
+    parameters.tc_time = params_dict["tc_time"]
+    parameters.test_delay = params_dict["test_delay"]
+    parameters.tmax = params_dict["tmax"]
+    parameters.tmin = params_dict["tmin"]
+    parameters.v_blood = params_dict["v_blood"]
+
+    # Convert to numpy array
+    parameters.north = np.array(params_dict["north"])
+
 
 
 def start_out_csv(filename="output"):
     """
     Creates csv file to store output. Writes the variable name for each column.
-    :param filename: str, filename location for csv file.
+    :param filename: str, filename (and location) for csv file.
     :return:
     """
-    variable_names = ["antibody_per_bcr",
-                      "antigen_amount",
-                      "available_cell_ids",
-                      "bcell_contacts",
-                      "bcr",
-                      "bcr_values_all",
-                      "clock",
-                      "cycle_start_time",
-                      "end_of_this_phase",
-                      "frag_contact",
-                      "fragments",
-                      "grid_cxcl12",
-                      "grid_cxcl13",
-                      "grid_id",
-                      "grid_type",
-                      "i_am_high_ag",
-                      "ic_amount",
-                      "individual_dif_delay",
-                      "list_cb",
-                      "list_cc",
-                      "list_fdc",
-                      "list_outcells",
-                      "list_stromal",
-                      "list_tc",
-                      "num_bcells",
-                      "num_bcr_outcells",
-                      "num_bcr_outcells_produce",
-                      "num_divisions_to_do",
-                      "num_fdc_contacts",
-                      "p_mutation",
-                      "parent",
-                      "polarity",
-                      "position",
-                      "responsive_to_cxcl12",
-                      "responsive_to_cxcl13",
-                      "retained_ag",
-                      "save_counter",
-                      "selectable",
-                      "selected_clock",
-                      "state",
-                      "tc_clock",
-                      "tc_signal_duration",
-                      "tcell_contact",
-                      "times",
-                      "type"]
+    variable_names = ["num_bcells",
+                      "times"]
 
     with open(filename + ".csv", "w") as output_file:
         output_writer = csv.writer(output_file)
         output_writer.writerow(variable_names)
 
 
+def update_out_csv(out_instance, filename="output"):
+    """
+    Writes the current output values to csv file.
+    :param out_instance: Out object, instance of all changing variables in simulation.
+    :param filename: str, filename (and location) for csv file.
+    :return:
+    """
+    new_line = [out_instance.times, out_instance.num_bcells]
 
-def out_to_csv( out_instance, filename = "output"):
-    current_output = []
-
-    with open(filename + ".csv", "w") as output_file:
+    with open(filename + ".csv", "a") as output_file:
         output_writer = csv.writer(output_file)
-        output_writer.writerow(current_output)
+        output_writer.writerow(new_line)
 
 
-def csv_to_out(filename):  # ?
-    pass
+def pickle_current_state(out_instance):
+    """
+    Saves current state of simulation using pickle for the purpose of restarting simulation.
+    :param out_instance: Out object, instance of all changing variables in simulation.
+    :return:
+    """
+    restart_data = open("Restart_data{:04d}.pickle".format(out_instance.save_counter), "wb")
+    pickle.dump(out_instance, restart_data)
+    restart_data.close()
+
+
+def recover_state_from_pickle():
+    """
+    Searches through current directory to find most recent
+    :return: Out object from simulation.
+    """
+    all_files = os.listdir(".")
+    restart_files = [file for file in all_files if file[:12] == "Restart_data"]
+
+    most_recent = restart_files[-1]
+    parameters_file = open("Restart_data/{}".format(most_recent), "rb")
+    output = pickle.load(parameters_file)
+    return output
 
 
 if __name__ == "__main__":
     parameters = Params()
+    params_dict = params_to_dict(parameters)
+    dict_to_json(params_dict)
     output = Out(parameters)
     start_out_csv()
 
