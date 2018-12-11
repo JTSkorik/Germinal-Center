@@ -9,6 +9,7 @@ import pickle
 import json
 import csv
 import os
+import sys
 
 
 # Enumerations for Cell Type and State comparisons
@@ -343,7 +344,7 @@ def initiate_chemokine_receptors(cell_id, parameters, output):
     elif cell_type == CellType.Outcell:
         output.responsive_to_cxcl12[cell_id] = False
         output.responsive_to_cxcl13[cell_id] = False
-    #
+
     else:
         print("initiate_chemokine_receptors: Invalid cell_type, {}".format(cell_type))
 
@@ -410,7 +411,7 @@ def move(cell_id, parameters, output):
     if random.uniform(0, 1) < prob:
         # Obtain turning angles
         phi = random.gauss(0, math.pi / 4)
-        turn_angle(cell_id, phi, parameters)
+        turn_angle(cell_id, phi, output)
 
     # Find CXCL13 influence
     if output.responsive_to_cxcl12:
@@ -996,7 +997,7 @@ def initialise_cells(parameters, output):
         output.grid_type[cell_position] = CellType.TCell
 
 
-def hyphasma(parameters, output):
+def hyphasma(parameters, output, filename_output):
     """
     Main Driver function for the simulation of a Germinal Center.
     :param parameters: params object, stores all parameters and variables in simulation.
@@ -1008,21 +1009,22 @@ def hyphasma(parameters, output):
     while output.t <= parameters.tmax:
 
         # If 1 simulated hour has elapsed, save current state.
-        if output.t >= 1 \
-                * output.save_counter:
-            print("Saving current state")
-            pickle_current_state(output)
-
+        if output.t >= 1 * output.save_counter:
+            #print("Saving current state")
             output.save_counter += 1
+            pickle_current_state(output, simulation_name)
+            update_out_csv(output, filename_output)
 
-        print(output.t)
+
+
+        #print(output.t)
         # Track the number of B cells at each time step. (Used for Testing)
         output.num_bcells.append(len(output.list_cc) + len(output.list_cb))
-        if output.num_bcells[-1] > 3:
-            print("Number B Cells: {}".format(output.num_bcells[-1]))
-            print("Number Centroblasts: {}".format(len(output.list_cb)))
-            print("Number Centrocytes: {}".format(len(output.list_cc)))
-            print("Number Outcells: {}".format(len(output.list_outcells)))
+        #if output.num_bcells[-1] > 3:
+        #    print("Number B Cells: {}".format(output.num_bcells[-1]))
+        #    print("Number Centroblasts: {}".format(len(output.list_cb)))
+        #    print("Number Centrocytes: {}".format(len(output.list_cc)))
+        #    print("Number Outcells: {}".format(len(output.list_outcells)))
         output.times.append(output.t)
 
         # Secrete CXCL12 from Stromal cells
@@ -1368,7 +1370,7 @@ def params_to_dict(params_instance):
     return ans
 
 
-def dict_to_json(dictionary, filename="parameters"):
+def dict_to_json(dictionary, filename):
     """
     Converts dictionary object to json file and saves.
     :param dictionary: dict, the dictionary we intended on saving
@@ -1379,7 +1381,7 @@ def dict_to_json(dictionary, filename="parameters"):
         json.dump(dictionary, fp, sort_keys=True)
 
 
-def json_to_params(parameters, filename="parameters"):
+def json_to_params(parameters, filename):
     """
     Modifies a Params object to contain the exact parameters
     wanted for current simulation.
@@ -1466,7 +1468,7 @@ def json_to_params(parameters, filename="parameters"):
 
 
 
-def start_out_csv(filename="output"):
+def start_out_csv(filename):
     """
     Creates csv file to store output. Writes the variable name for each column.
     :param filename: str, filename (and location) for csv file.
@@ -1480,7 +1482,7 @@ def start_out_csv(filename="output"):
         output_writer.writerow(variable_names)
 
 
-def update_out_csv(out_instance, filename="output"):
+def update_out_csv(out_instance, filename):
     """
     Writes the current output values to csv file.
     :param out_instance: Out object, instance of all changing variables in simulation.
@@ -1494,38 +1496,62 @@ def update_out_csv(out_instance, filename="output"):
         output_writer.writerow(new_line)
 
 
-def pickle_current_state(out_instance):
+def pickle_current_state(out_instance, simulation_name):
     """
     Saves current state of simulation using pickle for the purpose of restarting simulation.
     :param out_instance: Out object, instance of all changing variables in simulation.
     :return:
     """
-    restart_data = open("Restart_data{:04d}.pickle".format(out_instance.save_counter), "wb")
+    restart_data = open(simulation_name + "_Restart_data{:04d}.pickle".format(out_instance.save_counter), "wb")
     pickle.dump(out_instance, restart_data)
     restart_data.close()
 
 
-def recover_state_from_pickle():
+def recover_state_from_pickle(filename):
     """
     Searches through current directory to find most recent
     :return: Out object from simulation.
     """
-    all_files = os.listdir(".")
-    restart_files = [file for file in all_files if file[:12] == "Restart_data"]
 
-    most_recent = restart_files[-1]
-    parameters_file = open("Restart_data/{}".format(most_recent), "rb")
+    parameters_file = open(filename, "rb")
     output = pickle.load(parameters_file)
     return output
 
 
 if __name__ == "__main__":
-    parameters = Params()
-    params_dict = params_to_dict(parameters)
-    dict_to_json(params_dict)
-    output = Out(parameters)
-    start_out_csv()
+    """
+    Requires one input to run the simulation. This input is the simulation name. 
+    This will be used in the naming of the parameters json file, restarting pickle
+    data and the output csv file.
+    """
+    assert len(sys.argv) == 2, "wrong number arguments given: {}".format(len(sys.argv))
 
-    hyphasma(parameters, output)
+    simulation_name = sys.argv[1]
+
+    # Find all files in current directory
+    all_files = os.listdir(".")
+
+    # Generate Params object that might be overwritten with new values
+    parameters = Params()
+
+    # Check if files exist, if not, make them:
+    if simulation_name + ".json" in all_files:
+        json_to_params(parameters, simulation_name)
+    else:
+        parameters_dict = params_to_dict(parameters)
+        dict_to_json(parameters_dict, simulation_name)
+
+    # Find restart files and sort so latest in final position
+    restart_files = [file for file in all_files if simulation_name + "_Restart_data" in file]
+    restart_files.sort()
+    if restart_files:
+        output = recover_state_from_pickle(restart_files[-1])
+    else:
+        output = Out(parameters)
+
+    if simulation_name + ".csv" not in all_files:
+        start_out_csv(simulation_name)
+
+    hyphasma(parameters, output, simulation_name)
     plt.plot(output.times, output.num_bcells)
     plt.show()
