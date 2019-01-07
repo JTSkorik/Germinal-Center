@@ -7,6 +7,7 @@
 \usepackage{amstext}
 \usepackage{array}
 \usepackage{tabularx}
+\usepackage{bm}
 
 \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
 \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
@@ -23,29 +24,48 @@
 \textbf{Research Paper}: Robert, P., Rastogi, A., Binder, S. and Meyer-Hermann, M. (2017). How to Simulate a Germinal Center. Methods in Molecular Biology, pp.303-334.
 
 
-\section{Implementation Ideas}
-
-Generate $N\times N\times N$ spatial grid to place discrete sphere with radius $N/2$ within. Find and store the valid spatial points within this grid. At each time step, record where the discrete grid spot is free or contains a cell. Use dictionary, return None if empty, otherwise cell ID? If we want to find the position of a cell, we would need to work the dictionary backwards, likely to be computationally slow. Could have two dictionaries - one that gives position from cell ID and another that gives Cell ID / None from position. Is this likely to cause update issues?
-
-The model given assigns cells an ID based on their position of each cell in its respective type list. This would allow for multiple cells to have the same ID and would require ID and type to be uniquely identified. Rather give each cell a unique ID regardless of type so always identifiable from ID alone. 
-
-Don't need to have dictionary storing whether a point is within the sphere, can just re-apply the same calculation used to find original sphere co-ordinates. 
-
-Let the points on the surface of the sphere be the points which are missing a neighbour. Should be easy to check.
-
-Algorithms state to randomly iterate through list. Currently doing it by shuffling list and iterating over. Since elements sometimes have to be deleted from these lists, would be better to randomly shuffle a list of indices so the element known to be deleted can be removed straight away. Can make the removal operation quicker by popping end of list and placing it in position of removed element. 
-
-Algorithm 4, progress\_cycle has been implemented poorly. Instead of having a lot of if statements, could store the states in a list in order of how they transition. Then only have to store the index for each cell and when they progress, add one to that index opposed to using lots of if statements. 
-
-The following was followed to generate random unit vectors for initial polarity: https://codereview.stackexchange.com/questions/77927/generate-random-unit-vectors-around-circle
-
-The germinal center has a maximum size. We generate ID values from 0 to the maximum number of cells in the germinal center and store/track them in a list. We assign each new cell an ID number (from the end of the list, using pop() to ensure O(1) operation) and when a cell dies, we append its ID value back into the list. In a numpy array of fixed size, we will store the properties of each cell as a named tuple (Not using named tuples since we can not charge their properties, instead, we will use types.SimpleNamespace). To access the correct properties, the associated ID to a cell will be used as the index in the numpy array (Now using lists since numpy arrays can't store SimpleNamespace variables). Unassigned IDs will contain None values in numpy array (list) and when a cell gets removed from the simulation, the numpy array (list) index is converted back to being a None value. 
-
-In main function, we have to iterate over lists randomly and occasionally remove elements from this list, can do so using enumerate function to track indices of what needs to be removed. 
-
-Can pass a cell object to a new function, edit it and not have to return the cell object for changes to be reflected, they'll occur automatically. 
+\section{Implementation Notes}
+\begin{itemize}
 
 
+\item Note that the size of the GC is constant. This gives us an upper bound on the number of cells. We generate a list of integers with as many unique entries as the size of the GC. When a new cell is created, we assign it an ID from this list. When a cell leaves the simulation, we add its ID back into the list. We use this unique ID as a key for each cells properties in respective cell types dictionaries. 
+
+\item Since the sphere is shifted to be in the first octant, we can create a 3D numpy array where each element corresponds to a position in the GC. We set points outside the GC to -1 and empty points within the GC to None. In the filled positions we store the ID of the cell in that position. This allows for O(1) checks for where a position is free or inside the GC. 
+
+\item We set the surface layer points of the GC to be those that have a neighbour outside of the GC. 
+
+\item The following was followed to generate random unit vectors for initial polarity: https://codereview.stackexchange.com/questions/77927/generate-random-unit-vectors-around-circle
+Summary: Can sample three $\mathcal{N}(0,1)$ variables and normalise to obtain a vector on unit sphere. 
+
+\item Rotating Polarity: Instructions were ambiguous, here is the implemented interpretation. We find a vector $\bm{v}$ that is perpendicular to the polarity vector. We first rotate the polarity $\theta$ degrees towards the vector $\bm{v}$. $\theta$ is sampled from a distribution not given, replaced with Normal distribution. Next, we rotate the resulting vector by $\phi$ degrees around the original polarity vector. Here, $\phi$ is sampled from uniform$(0,2\pi)$. Since $\bm{v}$ is chosen randomly and $\phi$ is chosen uniformly at random, these actions are equivalent to rotating the original polarity vector by $\theta$ degrees around a randomly generated perpendicular vector $\bm{v}$. We can generate $\bm{v}$ using
+\begin{equation}
+\bm{v}=\bm{r} - (\bm{r}\cdot\bm{n})\bm{n},
+\end{equation}
+where $\bm{r}$ is a random unit vector, and $\bm{n}$ is the polarity vector. We can then use the rotation matrix
+\begin{equation}
+\left[\begin{array}{ccc}
+\cos(\theta)+v_{x}^{2}\left(1-\cos(\theta)\right) & v_{x}v_{y}\left(1-\cos(\theta)\right)-v_{z}\sin(\theta) & v_{x}v_{z}\left(1-\cos(\theta)\right)+v_{y}\sin(\theta)\\
+v_{y}v_{x}\left(1-\cos(\theta)\right)+v_{z}\sin(\theta) & \cos(\theta)+v_{y}^{2}\left(1-\cos(\theta)\right) & v_{y}v_{z}\left(1-\cos(\theta)\right)-v_{x}\sin(\theta)\\
+v_{z}v_{x}\left(1-\cos(\theta)\right)-v_{y}\sin(\theta) & v_{z}v_{y}\left(1-\cos(\theta)\right)+v_{x}\sin(\theta) & \cos(\theta)+v_{z}^{2}\left(1-\cos(\theta)\right)
+\end{array}\right],
+\end{equation}
+to rotate the polarity around $\bm{v}=(v_x, v_y, v_z)$.
+
+\item Diffusion of CXCL12 and CXCL13:
+
+
+\item Secrete CXCL12 and CXCL13:
+
+
+
+
+	
+ 
+
+
+
+
+\end{itemize}
 
 \newpage
 \section{Parameters for each Cell}
@@ -294,17 +314,7 @@ responsiveToCXCL13 & Boolean & Records whether cell is responsive to signal CXCL
 \end{center}
 
 
-\subsection{General Parameters \& Tracked Lists}
-\begin{itemize}
-
-\item We keep two dictionaries, Grid\_id and Grid\_type. These dictionaries have a key of a tuple location within the sphere and return the cell and cell type located at that location, respectively. If that position is free, both dictionaries will contain 'None'.
-
-\item Dictionaries CXCL12 and CXCL12 will stores the amount of each located at a given location. 
-
-\item We will use StormaList, FDCList, CBList, and TCList to store the IDs of cells in each of these respective states. 
-
-\end{itemize}
-
+\newpage
 \section{Definitions \& Terms.}
 
 \begin{itemize}
