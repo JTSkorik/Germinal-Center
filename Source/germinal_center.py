@@ -422,7 +422,8 @@ def move(cell_id, parameters, output):
         gradient_cxcl12 = np.array([x_diff, y_diff, z_diff]) / (2 * parameters.dx)
         mag_gradient_cxcl12 = np.linalg.norm(gradient_cxcl12)
         chemo_factor = (parameters.chemo_max / (
-            1 + math.exp(parameters.chemo_steep * (parameters.chemo_half - 2 * parameters.dx * mag_gradient_cxcl12))))
+                1 + math.exp(
+            parameters.chemo_steep * (parameters.chemo_half - 2 * parameters.dx * mag_gradient_cxcl12))))
         output.polarity[cell_id] += chemo_factor * gradient_cxcl12
 
     # Find CXCL13 influence
@@ -434,7 +435,8 @@ def move(cell_id, parameters, output):
         gradient_cxcl13 = np.array([x_diff, y_diff, z_diff]) / (2 * parameters.dx)
         mag_gradient_cxcl13 = np.linalg.norm(gradient_cxcl13)
         chemo_factor = (parameters.chemo_max / (
-            1 + math.exp(parameters.chemo_steep * (parameters.chemo_half - 2 * parameters.dx * mag_gradient_cxcl13))))
+                1 + math.exp(
+            parameters.chemo_steep * (parameters.chemo_half - 2 * parameters.dx * mag_gradient_cxcl13))))
         output.polarity[cell_id] += chemo_factor * gradient_cxcl13
 
     # T Cell specific influence
@@ -815,8 +817,8 @@ def differ_to_cb(cell_id, parameters, output):
     ag_factor = output.num_fdc_contacts[cell_id] ** parameters.p_mhc_dep_nhill
     # Taking floor to ensure its an integer amount
     output.num_divisions_to_do[cell_id] = math.floor(parameters.p_mhc_dep_min + (
-        parameters.p_mhc_dep_max - parameters.p_mhc_dep_min) * ag_factor / (
-                                                         ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
+            parameters.p_mhc_dep_max - parameters.p_mhc_dep_min) * ag_factor / (
+                                                             ag_factor + parameters.p_mhc_depk ** parameters.p_mhc_dep_nhill))
 
     # Find new probability of mutation
     output.p_mutation[cell_id] = p_mut(output.t) + parameters.prob_mut_after_selection - p_mut(
@@ -1010,17 +1012,15 @@ def hyphasma(parameters, output, filename_output):
 
         # If 1 simulated hour has elapsed, save current state.
         if output.t >= 1 * output.save_counter:
-            #print("Saving current state")
+            # print("Saving current state")
             output.save_counter += 1
             pickle_current_state(output, simulation_name)
             update_out_csv(output, filename_output)
 
-
-
-        #print(output.t)
+        # print(output.t)
         # Track the number of B cells at each time step. (Used for Testing)
         output.num_bcells.append(len(output.list_cc) + len(output.list_cb))
-        #if output.num_bcells[-1] > 3:
+        # if output.num_bcells[-1] > 3:
         #    print("Number B Cells: {}".format(output.num_bcells[-1]))
         #    print("Number Centroblasts: {}".format(len(output.list_cb)))
         #    print("Number Centrocytes: {}".format(len(output.list_cc)))
@@ -1041,8 +1041,8 @@ def hyphasma(parameters, output, filename_output):
             for fragment_id in fragments:
                 for bcr_seq in output.bcr_values_all:
                     d_ic = parameters.dt * (
-                        parameters.k_on * output.antigen_amount[fragment_id] * output.antibody_per_bcr[
-                            bcr_seq] - k_off(bcr_seq, parameters) * output.ic_amount[fragment_id])
+                            parameters.k_on * output.antigen_amount[fragment_id] * output.antibody_per_bcr[
+                        bcr_seq] - k_off(bcr_seq, parameters) * output.ic_amount[fragment_id])
                     output.antigen_amount[fragment_id] -= d_ic
                     output.ic_amount[fragment_id] += d_ic
 
@@ -1057,8 +1057,8 @@ def hyphasma(parameters, output, filename_output):
             output.num_bcr_outcells_produce[bcr_seq] += transfer_t
             output.antibody_per_bcr[bcr_seq] = output.num_bcr_outcells_produce[
                                                    bcr_seq] * parameters.ab_prod_factor - parameters.antibody_degradation * \
-                                                                                          output.antibody_per_bcr[
-                                                                                              bcr_seq]
+                                               output.antibody_per_bcr[
+                                                   bcr_seq]
 
         # Randomly iterate of outcells and move, remove if on surface of GC
         random.shuffle(output.list_outcells)
@@ -1135,7 +1135,7 @@ def affinity(bcr):
     :param bcr: 4-digit integer, BCR value for a cell.
     :return: float, affinity between given BCR and target BCR.
     """
-    hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
+    hamming_dist = sum(abs(int(el1)-int(el2)) for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
 
@@ -1226,7 +1226,7 @@ def k_off(bcr, parameters):
     """
     hamming_dist = sum(el1 != el2 for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
     return parameters.k_on / (
-        10 ** (parameters.exp_min + math.exp(-(hamming_dist / 2.8) ** 2) * parameters.exp_max - parameters.exp_min))
+            10 ** (parameters.exp_min + math.exp(-(hamming_dist / 2.8) ** 2) * parameters.exp_max - parameters.exp_min))
 
 
 def p_mut(time):
@@ -1467,7 +1467,6 @@ def json_to_params(parameters, filename):
     parameters.north = np.array(params_dict["north"])
 
 
-
 def start_out_csv(filename):
     """
     Creates csv file to store output. Writes the variable name for each column.
@@ -1545,13 +1544,17 @@ if __name__ == "__main__":
     restart_files = [file for file in all_files if simulation_name + "_Restart_data" in file]
     restart_files.sort()
     if restart_files:
+        # If restart files exist, load data
         output = recover_state_from_pickle(restart_files[-1])
     else:
+        # otherwise, create new Out object
         output = Out(parameters)
 
+    # If output file does not exist, create new one
     if simulation_name + ".csv" not in all_files:
         start_out_csv(simulation_name)
 
+    # Starts/continues simulation
     hyphasma(parameters, output, simulation_name)
     plt.plot(output.times, output.num_bcells)
     plt.show()
