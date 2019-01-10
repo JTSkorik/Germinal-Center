@@ -1029,12 +1029,12 @@ def hyphasma(parameters, output, filename_output):
 
         # Secrete CXCL12 from Stromal cells
         for cell_id in output.list_stromal:
-            signal_secretion(cell_id, parameters)
+            signal_secretion(cell_id, parameters, output)
 
         random.shuffle(output.list_fdc)
         for cell_id in output.list_fdc:
             # Secrete CXCL13 from F Cells
-            signal_secretion(cell_id, parameters)
+            signal_secretion(cell_id, parameters, output)
 
             # Update antigen amounts for each fragment
             fragments = output.fragments[cell_id]
@@ -1047,7 +1047,7 @@ def hyphasma(parameters, output, filename_output):
                     output.ic_amount[fragment_id] += d_ic
 
         # Diffuse CXCL12/13
-        diffuse_signal(parameters)
+        diffuse_signal(parameters, output)
 
         # Update the number of outcells and amount of antibody for each CR value.
         for bcr_seq in output.bcr_values_all:
@@ -1139,7 +1139,7 @@ def affinity(bcr):
     return math.exp(-(hamming_dist / 2.8) ** 2)
 
 
-def signal_secretion(cell_id, parameters):
+def signal_secretion(cell_id, parameters, output):
     """
     Secrets predetermined amound of CXCL1212 from Stromal cells and CXCL13 from Fcells.
     :param cell_id: integer, determines which cell in population we are manipulating.
@@ -1155,7 +1155,7 @@ def signal_secretion(cell_id, parameters):
         output.grid_cxcl13[tuple(cell_position)] += parameters.p_mk_cxcl13
 
 
-def diffuse_signal(parameters):
+def diffuse_signal(parameters, output):
     """
     How do we do this?
     We're going to make the CXCL12/13 concentrations follow an underlying
