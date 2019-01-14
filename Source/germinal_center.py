@@ -666,7 +666,7 @@ def progress_fdc_selection(cell_id, parameters, output):
                             frag_max = output.antigen_amount[frag_id]
                             frag_max_id = frag_id
 
-                p_bind = affinity(output.bcr[cell_id]) * frag_max / parameters.antigen_saturation
+                p_bind = affinity(parameters, output.bcr[cell_id]) * frag_max / parameters.antigen_saturation
 
                 # Bind cell and fragment with probability p_bind or reset the clock.
                 if random.uniform(0, 1) < p_bind:
@@ -822,7 +822,7 @@ def differ_to_cb(cell_id, parameters, output):
 
     # Find new probability of mutation
     output.p_mutation[cell_id] = p_mut(output.t) + parameters.prob_mut_after_selection - p_mut(
-        output.t) * affinity(output.bcr[cell_id]) ** parameters.prob_mut_affinity_exponent
+        output.t) * affinity(parameters, output.bcr[cell_id]) ** parameters.prob_mut_affinity_exponent
 
     # Initiate cell
     initiate_chemokine_receptors(cell_id, parameters, output)
@@ -892,7 +892,7 @@ def initialise_cells(parameters, output):
         # Find empty location in light zone
         cell_position = random.choice(parameters.light_zone)
         while output.grid_id[cell_position] is not None:
-            cell_position = random.choice(parameters.dark_zone)
+            cell_position = random.choice(parameters.light_zone)
 
         cell_id = output.available_cell_ids.pop()
 
@@ -944,7 +944,7 @@ def initialise_cells(parameters, output):
         # Find empty location in light zone
         cell_position = random.choice(parameters.light_zone)
         while output.grid_id[cell_position] is not None:
-            cell_position = random.choice(parameters.dark_zone)
+            cell_position = random.choice(parameters.light_zone)
 
         cell_id = output.available_cell_ids.pop()
 
@@ -968,6 +968,9 @@ def initialise_cells(parameters, output):
         output.cycle_start_time[cell_id] = None
         output.end_of_this_phase[cell_id] = None
 
+        output.grid_id[cell_position] = cell_id
+        output.grid_type[cell_position] = CellType.Centroblast
+
         # Initialise cells
         initiate_cycle(cell_id, parameters, output)
         initiate_chemokine_receptors(cell_id, parameters, output)
@@ -977,7 +980,7 @@ def initialise_cells(parameters, output):
         # Find empty location in light zone
         cell_position = random.choice(parameters.light_zone)
         while output.grid_id[cell_position] is not None:
-            cell_position = random.choice(parameters.dark_zone)
+            cell_position = random.choice(parameters.light_zone)
 
         cell_id = output.available_cell_ids.pop()
 
@@ -1129,19 +1132,31 @@ def hyphasma(parameters, output, filename_output):
 
 
 # Helper functions
-def affinity(bcr):
+
+def hamming_distance(value1, value2):
+    """
+    Calculates hamming distance between two decimal numbers.
+    Examples:
+        hamming_distance(1000, 1001) = 1
+        hamming_distance(1000, 1002) = 2
+        hamming_distance(1234, 5678) = 16
+    :param bcr: 4-digit integer, BCR value for a cell.
+    :return: float, affinity between given BCR and target BCR.
+    """
+    return sum(abs(int(el1)-int(el2)) for el1, el2 in zip(str(value1), str(value2)))
+
+def affinity(parameters, bcr):
     """
     Calculates the affinity between the target antigen and a given antigen value.
     :param bcr: 4-digit integer, BCR value for a cell.
     :return: float, affinity between given BCR and target BCR.
     """
-    hamming_dist = sum(abs(int(el1)-int(el2)) for el1, el2 in zip(str(bcr), str(parameters.antigen_value)))
-    return math.exp(-(hamming_dist / 2.8) ** 2)
+    return math.exp(-(hamming_distance(parameters.antigen_value, bcr) / 2.8) ** 2)
 
 
 def signal_secretion(cell_id, parameters, output):
     """
-    Secrets predetermined amound of CXCL1212 from Stromal cells and CXCL13 from Fcells.
+    Secrets predetermined amount of CXCL1212 from Stromal cells and CXCL13 from Fcells.
     :param cell_id: integer, determines which cell in population we are manipulating.
     :param parameters: params object, stores all parameters and variables in simulation.
     :return:

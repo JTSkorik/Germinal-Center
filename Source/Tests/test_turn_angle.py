@@ -3,7 +3,7 @@ import numpy as np
 
 def test_turn_angle():
     # Tests if turn_angle turns to NaN.
-    for i in range(100):
+    for i in range(1):
         parameters = Params()
         output = Out(parameters)
         initialise_cells(parameters, output)
