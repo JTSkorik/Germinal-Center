@@ -4,7 +4,7 @@ import numpy as np
 # TODO test with output states further along in development.
 
 def test_not_move():
-    for _ in range(100):
+    for _ in range(1):
         parameters = Params()
         output = Out(parameters)
         initialise_cells(parameters, output)
@@ -72,7 +72,7 @@ def count_neighbours(cell, parameters, output):
 
 
 def test_move_appropriately():
-    for _ in range(100):
+    for _ in range(1):
         parameters = Params()
         output = Out(parameters)
         initialise_cells(parameters, output)

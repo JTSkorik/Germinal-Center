@@ -66,7 +66,7 @@ class Params():
         self.antigen_value = 1234
 
         # Distance Variables:
-        self.n = 16  # Diameter of sphere/GC
+        self.n = 64  # Diameter of sphere/GC
 
         # Generate list of all possible points in GC
         self.all_points = []
@@ -89,10 +89,10 @@ class Params():
         self.tmax = 30.0
 
         # Initialisation
-        self.initial_num_stromal_cells = 30
-        self.initial_num_fdc = 20
+        self.initial_num_stromal_cells = 300
+        self.initial_num_fdc = 200
         self.initial_num_seeder = 3
-        self.initial_num_tcells = 25
+        self.initial_num_tcells = 250
 
         self.dendrite_length = 8
         self.initial_antigen_amount_per_fdc = 3000
@@ -1171,24 +1171,7 @@ def signal_secretion(cell_id, parameters, output):
 
 
 def diffuse_signal(parameters, output):
-    """
-    How do we do this?
-    We're going to make the CXCL12/13 concentrations follow an underlying
-    linear relationship with noise.
-    Can remove the linear relationship and only look at the noise.
-    Now need to find a way to disperse this noise then add linear relationship back.
-
-    Problem 1: We have diffusion constants.
-    Look at current time. Find the change of each square based on current state.
-    Somehow add randomness. Find net changes in each position and apply it all at once.
-
-    Problem 2: There is nothing that removes CXCL12/13 from the GC.
-    Should email Kim about this but will just allow it to be removed along the boundary.
-
-    Problem 3: Boundary values not given for CXCL12.
-    Assume zero.
-
-    """
+    rate = 1/10.
 
     diff_cxcl12 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
     diff_cxcl13 = np.zeros([parameters.n + 2, parameters.n + 2, parameters.n + 2])
@@ -1200,27 +1183,27 @@ def diffuse_signal(parameters, output):
                 amount_cxcl12 = output.grid_cxcl12[i, j, k]
                 amount_cxcl13 = output.grid_cxcl13[i, j, k]
 
-                diff_cxcl12[i, j, k] -= amount_cxcl12 * 2 / 5
-                diff_cxcl13[i, j, k] -= amount_cxcl13 * 2 / 5
+                diff_cxcl12[i, j, k] -= amount_cxcl12 * rate
+                diff_cxcl13[i, j, k] -= amount_cxcl13 * rate
 
                 # Movements towards dark side
                 neighbours = [(i + ii - 1, j + jj - 1, k + 1) for ii in range(3) for jj in range(3)]
                 for neighbour in neighbours:
-                    diff_cxcl12[neighbour] += amount_cxcl12 / 18
-                    diff_cxcl13[neighbour] += amount_cxcl13 / 54
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 18 * rate
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 54 * rate
 
                 # Movements towards light side
                 neighbours = [(i + ii - 1, j + jj - 1, k - 1) for ii in range(3) for jj in range(3)]
                 for neighbour in neighbours:
-                    diff_cxcl12[neighbour] += amount_cxcl12 / 54
-                    diff_cxcl13[neighbour] += amount_cxcl13 / 18
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 54 * rate
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 18 * rate
 
                 # Without Z changing
                 neighbours = [(i + ii - 1, j + jj - 1, k) for ii in range(3) for jj in range(3)]
                 neighbours.remove((i, j, k))
                 for neighbour in neighbours:
-                    diff_cxcl12[neighbour] += amount_cxcl12 / 24
-                    diff_cxcl13[neighbour] += amount_cxcl13 / 24
+                    diff_cxcl12[neighbour] += amount_cxcl12 / 24 * rate
+                    diff_cxcl13[neighbour] += amount_cxcl13 / 24 * rate
 
     # Make changes:
     output.grid_cxcl12 += diff_cxcl12
@@ -1228,7 +1211,7 @@ def diffuse_signal(parameters, output):
 
     # Set values outside of GC to zero
     for (x, y, z), value in np.ndenumerate(output.grid_cxcl12):
-        if np.linalg.norm(np.array([x, y, z]) - np.array(parameters.offset)) > (parameters.n / 2):
+        if output.grid_id[(x,y,z)] == -1:
             output.grid_cxcl12[x, y, z] = 0
             output.grid_cxcl13[x, y, z] = 0
 
