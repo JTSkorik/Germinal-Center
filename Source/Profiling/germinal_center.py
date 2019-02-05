@@ -86,7 +86,7 @@ class Params():
         # Time Variables:
         self.dt = 0.002
         self.tmin = 0.0
-        self.tmax = 504.0
+        self.tmax = 1.0
 
         # Initialisation
         self.initial_num_stromal_cells = 30
@@ -648,14 +648,14 @@ def progress_fdc_selection(cell_id, parameters, output):
     if output.state[cell_id] == CellState.Unselected:
         # Progress selected clock and check if able to collect antigen.
         output.selected_clock[cell_id] += parameters.dt
-        if output.selected_clock[cell_id] <= parameters.collect_fdc_period:
+        if output.selected_clock[cell_id] <= parameters.collected_fdc_period:
             output.clock[cell_id] += parameters.dt
 
             if output.clock[cell_id] > parameters.test_delay:
                 output.selectable[cell_id] = True
 
                 # Find neighbouring frag component with largest amount of antigen.
-                frag_max = 0
+                frag_max = None
                 frag_max_id = None
                 cell_pos = output.position[cell_id]
                 for neighbour in parameters.possible_neighbours:
@@ -1013,12 +1013,14 @@ def hyphasma(parameters, output, filename_output):
 
     while output.t <= parameters.tmax:
 
-        # If 1 simulated hour has elapsed, save current state.
+        """
+	# If 1 simulated hour has elapsed, save current state.
         if output.t >= 1 * output.save_counter:
             # print("Saving current state")
             output.save_counter += 1
             pickle_current_state(output, simulation_name)
             update_out_csv(output, filename_output)
+	"""
 
         # print(output.t)
         # Track the number of B cells at each time step. (Used for Testing)
@@ -1535,6 +1537,9 @@ if __name__ == "__main__":
     # Generate Params object that might be overwritten with new values
     parameters = Params()
 
+    output = Out(parameters)
+    
+    """
     # Check if files exist, if not, make them:
     if simulation_name + ".json" in all_files:
         json_to_params(parameters, simulation_name)
@@ -1555,6 +1560,7 @@ if __name__ == "__main__":
     # If output file does not exist, create new one
     if simulation_name + ".csv" not in all_files:
         start_out_csv(simulation_name)
+    """
 
     # Starts/continues simulation
     hyphasma(parameters, output, simulation_name)
